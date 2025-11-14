@@ -19,6 +19,7 @@ info:
     - Media Service: /api/v1/media
     - Health Service: /api/v1/health
     - AI Recommendation Service: /api/v1/ai
+    - Notification Service: /api/v1/notifications
     
     Tính năng chính:
     - Quản lý người dùng và xác thực
@@ -37,10 +38,6 @@ info:
 servers:
   - url: http://localhost:8888/api/v1
     description: API Gateway - Local Development
-  - url: https://api-gateway.cookpad-app.com/api/v1
-    description: API Gateway - Production
-  - url: https://staging-gateway.cookpad-app.com/api/v1
-    description: API Gateway - Staging
 
 tags:
   - name: Authentication Service
@@ -64,11 +61,13 @@ tags:
   - name: Search Service
     description: Search microservice - Tìm kiếm công thức
   - name: Media Service
-    description: Media microservice - Upload và quản lý hình ảnh/video
+    description: Media microservice - Upload và quản lý hình ảnh
   - name: Health Service
     description: Health microservice - Quản lý hồ sơ sức khỏe và bệnh án
   - name: AI Recommendation Service
     description: AI microservice - Phân tích và gợi ý món ăn bằng LLM
+  - name: Notification Service
+    description: Notification microservice - Quản lý thông báo và gửi thông báo realtime
 
 
 paths:
@@ -1459,7 +1458,7 @@ paths:
     post:
       tags:
         - Media Service
-      summary: Upload hình ảnh/video
+      summary: Upload hình ảnh
       security:
         - bearerAuth: []
       requestBody:
@@ -1503,6 +1502,45 @@ paths:
                     example: 524288
         '400':
           description: File không hợp lệ hoặc quá lớn
+  /media/batch-upload:
+    post:
+      tags:
+        - Media Service
+      summary: Upload nhiều file cùng lúc
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - files
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  maxItems: 10
+      responses:
+        '200':
+          description: Upload thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploads:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                          format: uri
+
 
   # ==================== HEALTH SERVICE (NEW) ====================
   /health/medical-records:
