@@ -1,0 +1,17 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-service
+  neo4j:
+    uri: bolt://localhost:7687
+    authentication:
+      username: neo4j
+      password: 12345678
+
+app:
+  services:
+    file:
+      default-avatar: http://localhost:8888/api/v1/media/download/9963eeb2-e8fd-4aef-9585-3f605adc0e7f.png
+      url: http://localhost:8090/media
