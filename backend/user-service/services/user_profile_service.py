@@ -44,7 +44,6 @@ class UserProfileService:
     def update_my_profile(self, request: ProfileUpdationRequest) -> UserDetail:
         """
         Update current user's profile
-        Equivalent to Java updateMyProfile() method
         """
         # Get user ID from security context (set by JWT middleware)
         user_id = g.get('user_id')
