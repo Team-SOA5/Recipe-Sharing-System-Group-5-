@@ -1,0 +1,23 @@
+# Application configuration (Python Flask version)
+# This file is for reference only - actual configuration is in config.py and .env
+
+server:
+  port: 8080
+
+application:
+  name: authentication-service
+
+database:
+  url: "mysql+pymysql://root:12345678@localhost:3306/cookpad-identity"
+  driver: "pymysql"
+  echo: true
+  track_modifications: false
+
+jwt:
+  signer_key: "4vCM6CA5NXhXhG+LjHY+PfQRZYGjm13cHoNxVPuDyEYz2XB5SO/8Ko2vCxBkqHeT"
+  access_token_duration: 1000  # seconds
+  refresh_token_duration: 30000  # seconds
+  issuer: "team16.com"
+
+services:
+  profile_service_url: "http://localhost:8081/users"
