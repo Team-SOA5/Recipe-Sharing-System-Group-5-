@@ -5,21 +5,7 @@ info:
     API cho ứng dụng chia sẻ công thức nấu ăn, tương tự Cookpad.
     
     **Kiến trúc Microservices:**
-    - API Gateway: http://localhost:8888
-    - Authentication Service: http://localhost:8080/api/v1/auth
-    - User Service: http://localhost:8081/api/v1/users
-    - Recipe Service: http://localhost:8082/api/v1/recipes
-    - Category Service: http://localhost:8083/api/v1/categories
-    - Tag Service: http://localhost:8084/api/v1/tags
-    - Comment Service: http://localhost:8085/api/v1/comments
-    - Rating Service: http://localhost:8086/api/v1/ratings
-    - Favorite Service: http://localhost:8087/api/v1/favorites
-    - Follow Service: http://localhost:8088/api/v1/follows
-    - Search Service: http://localhost:8089/api/v1/search
-    - Media Service: http://localhost:8090/api/v1/media
-    - Health Service: http://localhost:8091/api/v1/health
-    - AI Recommendation Service: http://localhost:8092/api/v1/ai
-    - Notification Service: http://localhost:8093/api/v1/notifications
+    - API Gateway: http://localhost:8888/api/v1/...
     
     Tính năng chính:
     - Quản lý người dùng và xác thực
