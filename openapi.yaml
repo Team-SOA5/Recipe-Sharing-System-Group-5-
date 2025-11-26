@@ -362,7 +362,7 @@ paths:
   /users/{userId}/favorites:
     get:
       tags:
-        - Recipe Service
+        - Favorite Service
       summary: Lấy danh sách công thức yêu thích của người dùng
       parameters:
         - name: userId
