@@ -8,7 +8,7 @@ class Config:
     # Database configuration
     SQLALCHEMY_DATABASE_URI = os.getenv(
         'DATABASE_URL',
-        'mysql+pymysql://root:12345678@localhost:3306/cookpad-identity'
+        'mysql+pymysql://root:@localhost:3306/cookpad-identity'
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = True
