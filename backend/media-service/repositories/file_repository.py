@@ -9,7 +9,7 @@ from models.models import FileManagement
 
 class FileRepository:
     """
-    Repository xử lý file storage - tương ứng với FileRepository trong Java
+    Repository xử lý file storage
     Quản lý việc lưu trữ và đọc file từ filesystem
     """
     

@@ -3,7 +3,7 @@ from enum import Enum
 
 class ErrorCode(Enum):
     """
-    Enum cho error codes - tương ứng với ErrorCode trong Java
+    Enum cho error codes
     """
     USER_NOT_EXISTED = (1001, "user not existed", 404)
     UNAUTHENTICATED = (1002, "unauthenticated - you are not allowed!", 401)
@@ -23,7 +23,7 @@ class ErrorCode(Enum):
 
 class AppException(Exception):
     """
-    Custom application exception - tương ứng với AppException trong Java
+    Custom application exception
     """
     def __init__(self, error_code: ErrorCode):
         self.error_code = error_code

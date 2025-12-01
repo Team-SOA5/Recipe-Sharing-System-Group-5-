@@ -11,7 +11,16 @@ CORS(app)
 
 # Kết nối MongoDB
 try:
-    connect(host=os.getenv('MONGO_URI'))
+    # Sử dụng connect với các tham số riêng biệt để đảm bảo authentication
+    mongo_uri = os.getenv('MONGO_URI')
+    connect(
+        host='localhost',
+        port=27017,
+        db='categories-service',
+        username='root',
+        password='root',
+        authentication_source='admin'
+    )
     print("✅ MongoDB Connected (Category DB)")
 except Exception as e:
     print(f"❌ MongoDB Connection Failed: {e}")

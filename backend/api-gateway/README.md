@@ -84,21 +84,6 @@ Authorization: Bearer <your-token>
 
 Token được xác thực thông qua authentication service endpoint `/auth/introspect`.
 
-## Sự khác biệt so với Java version
-
-### Giữ nguyên:
-- Logic routing và authentication
-- API prefix và endpoints
-- Service URLs và ports
-- Public endpoints patterns
-- Response format (ApiResponse)
-
-### Thay đổi kỹ thuật:
-- Reactive programming (Mono/Flux) → Synchronous requests
-- Spring Cloud Gateway filters → Flask decorators
-- WebClient → Python requests library
-- YAML configuration → Python config class
-
 ## Dependencies
 
 - **Flask**: Web framework

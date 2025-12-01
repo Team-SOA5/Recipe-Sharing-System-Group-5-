@@ -25,7 +25,7 @@ file_service = FileService(file_management_repository, file_repository)
 def download(file_name):
     """
     Endpoint để download file
-    Tương ứng với FileController.download() trong Java
+    
     
     URL: GET /download/{fileName}
     """
@@ -44,7 +44,7 @@ def download(file_name):
 def upload():
     """
     Endpoint để upload single file
-    Tương ứng với FileController.upload() trong Java
+    
     
     URL: POST /upload
     Form data: file (MultipartFile)
@@ -72,7 +72,7 @@ def upload():
 def batch_upload():
     """
     Endpoint để upload multiple files
-    Tương ứng với FileController.batchUpload() trong Java
+    
     
     URL: POST /batch-upload
     Form data: files (List<MultipartFile>)

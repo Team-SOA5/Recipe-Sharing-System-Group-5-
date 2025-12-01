@@ -5,7 +5,7 @@ from typing import List, Any, Optional
 @dataclass
 class ApiResponse:
     """
-    Generic API response wrapper - tương ứng với ApiResponse trong Java
+    Generic API response wrapper
     """
     code: int = 0
     message: str = "success!"
@@ -24,7 +24,7 @@ class ApiResponse:
 @dataclass
 class FileResponse:
     """
-    Response cho single file upload - tương ứng với FileResponse trong Java
+    Response cho single file upload
     """
     original_file_name: str
     url: str
@@ -39,7 +39,7 @@ class FileResponse:
 @dataclass
 class FileURLResponse:
     """
-    Response chứa URL của file - tương ứng với FileURLResponse trong Java
+    Response chứa URL của file
     """
     url: str
     
@@ -52,7 +52,7 @@ class FileURLResponse:
 @dataclass
 class BatchUploadResponse:
     """
-    Response cho batch upload - tương ứng với BatchUploadResponse trong Java
+    Response cho batch upload
     """
     uploads: List[FileURLResponse]
     
@@ -65,7 +65,7 @@ class BatchUploadResponse:
 @dataclass
 class FileData:
     """
-    Data class cho file download - tương ứng với FileData record trong Java
+    Data class cho file download
     """
     content_type: str
     resource: bytes

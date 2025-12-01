@@ -23,7 +23,6 @@ class UserProfileService:
     def create(self, request: ProfileCreationRequest) -> UserDetail:
         """
         Create a new user profile
-        Equivalent to Java create() method
         """
         # Create UserProfile from request
         user_profile = UserProfile(
@@ -44,6 +43,7 @@ class UserProfileService:
     def update_my_profile(self, request: ProfileUpdationRequest) -> UserDetail:
         """
         Update current user's profile
+        Equivalent to Java updateMyProfile() method
         """
         # Get user ID from security context (set by JWT middleware)
         user_id = g.get('user_id')
@@ -76,7 +76,6 @@ class UserProfileService:
     def update_avatar(self, file) -> UserDetail:
         """
         Update current user's avatar
-        Equivalent to Java updateAvatar() method
         """
         # Get user ID from security context
         user_id = g.get('user_id')
@@ -103,7 +102,6 @@ class UserProfileService:
     def find_by_user_id(self, user_id: str) -> UserDetail:
         """
         Find user profile by user ID
-        Equivalent to Java findByUserId() method
         """
         user_profile = self.repository.find_by_id(user_id)
         if not user_profile:
@@ -114,7 +112,6 @@ class UserProfileService:
     def find_by_username(self, username: str) -> UserDetail:
         """
         Find user profile by username
-        Equivalent to Java findByUsername() method
         """
         user_profile = self.repository.find_by_username(username)
         if not user_profile:
@@ -125,7 +122,6 @@ class UserProfileService:
     def my_profile(self) -> UserDetail:
         """
         Get current user's profile
-        Equivalent to Java myProfile() method
         """
         # Get user ID from security context
         user_id = g.get('user_id')

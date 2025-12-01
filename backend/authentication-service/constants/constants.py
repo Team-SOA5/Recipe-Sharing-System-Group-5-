@@ -1,4 +1,4 @@
 class PredefinedRole:
-    """Predefined role constants - equivalent to Java PredefinedRole"""
+    """Predefined role constants"""
     USER_ROLE = "USER"
     ADMIN_ROLE = "ADMIN"

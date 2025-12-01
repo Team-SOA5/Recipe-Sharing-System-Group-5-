@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class UserService:
-    """User service - equivalent to Java UserService"""
+    """User service"""
     
     @staticmethod
     def create(request: UserCreationRequest) -> User:
