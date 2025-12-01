@@ -16,6 +16,8 @@ class Config:
     AUTHENTICATION_SERVICE_URL = 'http://localhost:8080'
     USER_SERVICE_URL = 'http://localhost:8081'
     MEDIA_SERVICE_URL = 'http://localhost:8090'
+    RECIPE_SERVICE_URL = 'http://localhost:8082'
+    CATEGORY_SERVICE_URL = 'http://localhost:8083'
     
     # Public endpoints (regex patterns)
     PUBLIC_ENDPOINTS = [

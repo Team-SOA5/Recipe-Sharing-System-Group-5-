@@ -6,7 +6,6 @@ from werkzeug.exceptions import HTTPException
 def register_error_handlers(app):
     """
     Đăng ký các error handlers cho Flask app
-    Tương ứng với GlobalException trong Java
     """
     
     @app.errorhandler(AppException)
@@ -44,7 +43,7 @@ def register_error_handlers(app):
     @app.errorhandler(PermissionError)
     def handle_access_denied_exception(error):
         """
-        Handler cho PermissionError (tương ứng với AccessDeniedException trong Java)
+        Handler cho PermissionError
         """
         error_code = ErrorCode.UNAUTHORIZED
         response = {

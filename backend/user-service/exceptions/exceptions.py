@@ -2,7 +2,7 @@ from enum import Enum
 from http import HTTPStatus
 
 class ErrorCode(Enum):
-    """Error codes matching the Java ErrorCode enum"""
+    """Error codes"""
     
     USER_NOT_EXISTED = (1001, "user not existed", HTTPStatus.NOT_FOUND)
     UNAUTHENTICATED = (1002, "unauthenticated - you are not allowed!", HTTPStatus.UNAUTHORIZED)

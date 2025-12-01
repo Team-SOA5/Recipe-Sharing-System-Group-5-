@@ -148,15 +148,6 @@ user-service/
     └── jwt_service.py         # JWT utilities
 ```
 
-## Migration từ Java Spring Boot
-
-Service này được migrate từ Java Spring Boot sang Python Flask với:
-- ✅ Giữ nguyên logic nghiệp vụ
-- ✅ Giữ nguyên API endpoints
-- ✅ Giữ nguyên cấu trúc dữ liệu
-- ✅ Giữ nguyên cách xác thực JWT
-- ✅ Sử dụng Neo4j database
-- ✅ Tích hợp với Media Service
 
 ## Lưu ý
 

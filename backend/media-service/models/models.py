@@ -5,7 +5,7 @@ from datetime import datetime
 
 class FileManagement:
     """
-    Entity class for file management - tương ứng với FileManagement entity trong Java
+    Entity class for file management - 
     Lưu trữ thông tin file trong MongoDB collection 'file-management'
     """
     collection_name = 'file-management'

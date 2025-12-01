@@ -4,7 +4,7 @@ from typing import Optional
 
 
 class UserRepository:
-    """Repository for UserEntity - equivalent to Java UserRepository"""
+    """Repository for UserEntity"""
     
     @staticmethod
     def find_by_email(email: str) -> Optional[UserEntity]:
@@ -38,7 +38,7 @@ class UserRepository:
 
 
 class RoleRepository:
-    """Repository for Role - equivalent to Java RoleRepository"""
+    """Repository for Role"""
     
     @staticmethod
     def find_by_id(name: str) -> Optional[Role]:
@@ -65,7 +65,7 @@ class RoleRepository:
 
 
 class InvalidatedTokenRepository:
-    """Repository for InvalidatedToken - equivalent to Java InvalidatedTokenRepository"""
+    """Repository for InvalidatedToken"""
     
     @staticmethod
     def save(token: InvalidatedToken) -> InvalidatedToken:

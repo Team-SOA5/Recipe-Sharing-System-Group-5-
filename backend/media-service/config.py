@@ -5,7 +5,6 @@ import yaml
 class Config:
     """
     Configuration class cho Flask application
-    Tương ứng với application.yaml trong Java Spring Boot
     """
     
     # Đọc configuration từ application.yaml

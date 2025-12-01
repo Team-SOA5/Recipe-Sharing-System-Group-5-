@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class AuthenticationService:
-    """Authentication service - equivalent to Java AuthenticationService"""
+    """Authentication service"""
     
     @staticmethod
     def introspect(request: IntrospectRequest) -> IntrospectResponse:

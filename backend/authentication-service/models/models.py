@@ -11,7 +11,7 @@ user_roles = db.Table('user_entity_role',
 
 
 class UserEntity(db.Model):
-    """User entity model - equivalent to Java UserEntity"""
+    """User entity model"""
     __tablename__ = 'user_entity'
     
     id = db.Column(db.String(255), primary_key=True, default=lambda: str(uuid.uuid4()))
@@ -37,7 +37,7 @@ class UserEntity(db.Model):
 
 
 class Role(db.Model):
-    """Role entity model - equivalent to Java Role"""
+    """Role entity model"""
     __tablename__ = 'role'
     
     name = db.Column(db.String(255), primary_key=True)
@@ -54,7 +54,7 @@ class Role(db.Model):
 
 
 class InvalidatedToken(db.Model):
-    """Invalidated token entity model - equivalent to Java InvalidatedToken"""
+    """Invalidated token entity model"""
     __tablename__ = 'invalidated_token'
     
     id = db.Column(db.String(255), primary_key=True)
