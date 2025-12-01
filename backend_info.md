@@ -28,3 +28,5 @@
 - Phải có folder `utils` chứa `jwt_service` như hướng dẫn trên
 - Phải có file requirements.txt
 - Phải có Hướng dẫn chạy viết trong readme (bao gồm thông tin database)
+- Khi test chỉ cần gọi đến port của service đó, không cần thông qua api-gateway, tôi sẽ tự cấu hình cái đó
+- Do cài đặt database của mỗi người khác nhau, nên hãy chú ý tới cấu hình database trước khi chạy test 1 service nào đó
