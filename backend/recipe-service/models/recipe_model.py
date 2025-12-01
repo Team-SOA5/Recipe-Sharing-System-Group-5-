@@ -1,69 +1,110 @@
 import mongoengine as db
 from datetime import datetime
 
+# --- Sub-documents ---
+
 class Ingredient(db.EmbeddedDocument):
     name = db.StringField(required=True)
-    quantity = db.StringField(required=True)
+    amount = db.StringField(required=True) # Đổi quantity -> amount cho khớp openapi
+    note = db.StringField()
 
-class Step(db.EmbeddedDocument):
-    order = db.IntField(required=True)
-    content = db.StringField(required=True)
+class Instruction(db.EmbeddedDocument): # Đổi Step -> Instruction
+    step = db.IntField(required=True)   # Đổi order -> step
+    description = db.StringField(required=True) # Đổi content -> description
     image = db.StringField()
+    duration = db.IntField() # Thời gian của bước này (phút)
+
+class NutritionInfo(db.EmbeddedDocument):
+    calories = db.IntField(default=0)
+    protein = db.FloatField(default=0.0)
+    carbs = db.FloatField(default=0.0)
+    fat = db.FloatField(default=0.0)
+    fiber = db.FloatField(default=0.0)
+
+# --- Main Document ---
 
 class Recipe(db.Document):
+    # Thông tin cơ bản
     title = db.StringField(required=True)
     description = db.StringField()
     thumbnail = db.StringField()
     
+    # Chi tiết
     ingredients = db.ListField(db.EmbeddedDocumentField(Ingredient))
-    steps = db.ListField(db.EmbeddedDocumentField(Step))
+    instructions = db.ListField(db.EmbeddedDocumentField(Instruction))
+    images = db.ListField(db.StringField()) # Danh sách ảnh thêm
+    tips = db.ListField(db.StringField())   # Mẹo nấu ăn
     
-    difficulty = db.StringField(choices=('Easy', 'Medium', 'Hard'), default='Medium')
-    time_minutes = db.IntField()
-    serving = db.IntField()
-    
-    author_id = db.StringField(required=True) # User ID từ token
+    # Phân loại & Chỉ số
+    author_id = db.StringField(required=True)
     category_id = db.StringField()
+    difficulty = db.StringField(choices=('easy', 'medium', 'hard'), default='medium')
+    
+    cookingTime = db.IntField() # Đổi time_minutes -> cookingTime
+    servings = db.IntField()
+    
     tags = db.ListField(db.StringField())
+    nutritionInfo = db.EmbeddedDocumentField(NutritionInfo, default=NutritionInfo)
     
-    # Calo (Optional - User nhập)
-    calories = db.FloatField(default=0.0)
+    # Thống kê & Tương tác
+    averageRating = db.FloatField(default=0.0)
+    ratingsCount = db.IntField(default=0)
+    viewsCount = db.IntField(default=0)     # Đổi views -> viewsCount
+    favoritesCount = db.IntField(default=0)
+    commentsCount = db.IntField(default=0)
     
-    # Thống kê
-    views = db.IntField(default=0)
-    average_rating = db.FloatField(default=0.0)
-    
-    created_at = db.DateTimeField(default=datetime.utcnow)
-    updated_at = db.DateTimeField(default=datetime.utcnow)
+    # Timestamps
+    createdAt = db.DateTimeField(default=datetime.utcnow)
+    updatedAt = db.DateTimeField(default=datetime.utcnow)
 
     meta = {
         'collection': 'recipes',
-        'ordering': ['-created_at']
+        'ordering': ['-createdAt']
     }
 
+    # Helper chuyển đổi JSON (Khớp schema Recipe trong OpenAPI)
     def to_json_summary(self):
         return {
             "id": str(self.id),
             "title": self.title,
+            "description": self.description,
             "thumbnail": self.thumbnail,
-            "author_id": self.author_id,
-            "total_time": self.time_minutes,
+            "author": {"id": self.author_id}, # Frontend sẽ fetch chi tiết User sau
+            "category": {"id": self.category_id}, # Frontend fetch Category sau
             "difficulty": self.difficulty,
-            "average_rating": self.average_rating,
-            "views": self.views,
-            "created_at": self.created_at.isoformat()
+            "cookingTime": self.cookingTime,
+            "servings": self.servings,
+            "averageRating": self.averageRating,
+            "ratingsCount": self.ratingsCount,
+            "viewsCount": self.viewsCount,
+            "favoritesCount": self.favoritesCount,
+            "commentsCount": self.commentsCount,
+            "tags": self.tags,
+            "createdAt": self.createdAt.isoformat(),
+            "updatedAt": self.updatedAt.isoformat(),
+            "isFavorited": False # Logic check favorite sẽ làm sau hoặc ở service khác
         }
 
+    # Helper chuyển đổi JSON Chi tiết (Khớp schema RecipeDetail)
     def to_json_detail(self):
         data = self.to_json_summary()
         data.update({
-            "description": self.description,
-            "ingredients": [{"name": i.name, "quantity": i.quantity} for i in self.ingredients],
-            "steps": [{"order": s.order, "content": s.content, "image": s.image} for s in self.steps],
-            "serving": self.serving,
-            "category_id": self.category_id,
-            "tags": self.tags,
-            "calories": self.calories,
-            "updated_at": self.updated_at.isoformat()
+            "ingredients": [
+                {"name": i.name, "amount": i.amount, "note": i.note} 
+                for i in self.ingredients
+            ],
+            "instructions": [
+                {"step": s.step, "description": s.description, "image": s.image, "duration": s.duration} 
+                for s in self.instructions
+            ],
+            "images": self.images,
+            "nutritionInfo": {
+                "calories": self.nutritionInfo.calories,
+                "protein": self.nutritionInfo.protein,
+                "carbs": self.nutritionInfo.carbs,
+                "fat": self.nutritionInfo.fat,
+                "fiber": self.nutritionInfo.fiber
+            },
+            "tips": self.tips
         })
         return data

@@ -8,8 +8,8 @@ class Category(db.Document):
     icon = db.StringField() # URL icon
     recipesCount = db.IntField(default=0) # Số lượng công thức thuộc danh mục này
     
-    created_at = db.DateTimeField(default=datetime.utcnow)
-    updated_at = db.DateTimeField(default=datetime.utcnow)
+    createdAt = db.DateTimeField(default=datetime.utcnow) # Đổi tên biến cho khớp schema openapi
+    updatedAt = db.DateTimeField(default=datetime.utcnow)
 
     meta = {
         'collection': 'categories',
@@ -23,5 +23,5 @@ class Category(db.Document):
             "description": self.description,
             "icon": self.icon,
             "recipesCount": self.recipesCount,
-            "createdAt": self.created_at.isoformat()
+            "createdAt": self.createdAt.isoformat()
         }

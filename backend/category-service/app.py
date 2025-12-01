@@ -16,7 +16,7 @@ try:
 except Exception as e:
     print(f"❌ MongoDB Connection Failed: {e}")
 
-# Đăng ký Blueprint với prefix /categories theo backend_info.md
+# Đăng ký Blueprint với prefix /categories
 app.register_blueprint(category_bp, url_prefix='/categories')
 
 @app.route('/health', methods=['GET'])
@@ -25,5 +25,4 @@ def health_check():
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8083))
-    print(f"🚀 Category Service running on http://localhost:{port}")
     app.run(host='0.0.0.0', port=port, debug=True)
