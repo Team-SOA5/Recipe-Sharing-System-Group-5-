@@ -6,20 +6,20 @@ info:
     
     **Kiến trúc Microservices:**
     - API Gateway: http://localhost:8888
-    - Authentication Service: /api/v1/auth
-    - User Service: /api/v1/users
-    - Recipe Service: /api/v1/recipes
-    - Category Service: /api/v1/categories
-    - Tag Service: /api/v1/tags
-    - Comment Service: /api/v1/comments
-    - Rating Service: /api/v1/ratings
-    - Favorite Service: /api/v1/favorites
-    - Follow Service: /api/v1/follows
-    - Search Service: /api/v1/search
-    - Media Service: /api/v1/media
-    - Health Service: /api/v1/health
-    - AI Recommendation Service: /api/v1/ai
-    - Notification Service: /api/v1/notifications
+    - Authentication Service: http://localhost:8080/api/v1/auth
+    - User Service: http://localhost:8081/api/v1/users
+    - Recipe Service: http://localhost:8082/api/v1/recipes
+    - Category Service: http://localhost:8083/api/v1/categories
+    - Tag Service: http://localhost:8084/api/v1/tags
+    - Comment Service: http://localhost:8085/api/v1/comments
+    - Rating Service: http://localhost:8086/api/v1/ratings
+    - Favorite Service: http://localhost:8087/api/v1/favorites
+    - Follow Service: http://localhost:8088/api/v1/follows
+    - Search Service: http://localhost:8089/api/v1/search
+    - Media Service: http://localhost:8090/api/v1/media
+    - Health Service: http://localhost:8091/api/v1/health
+    - AI Recommendation Service: http://localhost:8092/api/v1/ai
+    - Notification Service: http://localhost:8093/api/v1/notifications
     
     Tính năng chính:
     - Quản lý người dùng và xác thực
@@ -31,9 +31,6 @@ info:
     - Quản lý danh mục và thẻ tag
     - Phân tích hồ sơ bệnh án và gợi ý món ăn AI
   version: 1.0.0
-  contact:
-    name: API Support
-    email: support@cookpad-app.com
 
 servers:
   - url: http://localhost:8888/api/v1
@@ -172,6 +169,20 @@ paths:
       tags:
         - Authentication Service
       summary: Đăng xuất
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+                - accessToken
+              properties:
+                refreshToken:
+                  type: string
+                accessToken:
+                  type: string
       responses:
         '200':
           description: Đăng xuất thành công
@@ -1474,10 +1485,6 @@ paths:
                   type: string
                   format: binary
                   description: File hình ảnh
-                type:
-                  type: string
-                  enum: [image]
-                  default: image
       responses:
         '200':
           description: Upload thành công
@@ -1490,16 +1497,10 @@ paths:
                     type: string
                     format: uri
                     example: https://cdn.cookpad-app.com/images/abc123.jpg
-                  thumbnailUrl:
+                  originalFileName:
                     type: string
                     format: uri
-                    example: https://cdn.cookpad-app.com/thumbnails/abc123.jpg
-                  mediaType:
-                    type: string
-                    example: image
-                  size:
-                    type: integer
-                    example: 524288
+                    example: abc123.jpg
         '400':
           description: File không hợp lệ hoặc quá lớn
   /media/batch-upload:
