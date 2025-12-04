@@ -18,7 +18,6 @@ user_profile_service = UserProfileService()
 def find_by_id(user_id):
     """
     Find profile by user ID
-    Equivalent to Java: @GetMapping("/{userId}")
     """
     user_detail = user_profile_service.find_by_user_id(user_id)
     return jsonify(user_detail.to_dict()), 200
@@ -29,7 +28,6 @@ def find_by_id(user_id):
 def my_profile():
     """
     Get current user's profile
-    Equivalent to Java: @GetMapping("/me")
     """
     user_detail = user_profile_service.my_profile()
     return jsonify(user_detail.to_dict()), 200
@@ -40,7 +38,6 @@ def my_profile():
 def update_profile():
     """
     Update current user's profile
-    Equivalent to Java: @PutMapping("/me")
     """
     data = request.get_json()
     profile_request = ProfileUpdationRequest.from_dict(data)
@@ -53,7 +50,6 @@ def update_profile():
 def update_avatar():
     """
     Update current user's avatar
-    Equivalent to Java: @PutMapping("/me/avatar")
     """
     # Check if file is in request
     if 'file' not in request.files:

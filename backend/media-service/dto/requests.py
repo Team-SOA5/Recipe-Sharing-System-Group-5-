@@ -5,7 +5,7 @@ from typing import Optional
 @dataclass
 class FileInfo:
     """
-    DTO cho thông tin file - tương ứng với FileInfo trong Java
+    DTO cho thông tin file
     Được sử dụng để truyền thông tin file giữa các layer
     """
     name: str

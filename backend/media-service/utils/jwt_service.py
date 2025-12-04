@@ -7,19 +7,18 @@ from exceptions.exceptions import AppException, ErrorCode
 
 class JwtService:
     """
-    Service xử lý JWT token - tương ứng với CustomJwtDecoder trong Java
+    Service xử lý JWT token
     """
     
     def __init__(self):
-        # Trong Java, service này không verify signature vì chỉ parse token
-        # Điều này tương tự như CustomJwtDecoder chỉ parse token mà không verify
+        
+        # CustomJwtDecoder chỉ parse token mà không verify
         pass
     
     @staticmethod
     def decode_token(token):
         """
         Decode JWT token mà không verify signature
-        Tương ứng với CustomJwtDecoder.decode() trong Java
         
         Args:
             token: JWT token string
@@ -31,7 +30,7 @@ class JwtService:
             AppException: Nếu token invalid
         """
         try:
-            # Decode token mà không verify signature (giống như Java implementation)
+            # Decode token mà không verify signature
             # options={'verify_signature': False} tương ứng với việc chỉ parse SignedJWT
             decoded = jwt.decode(token, options={'verify_signature': False})
             

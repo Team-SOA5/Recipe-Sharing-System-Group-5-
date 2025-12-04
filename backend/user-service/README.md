@@ -1,7 +1,5 @@
 # User Service
 
-User Profile Service được migrate từ Java Spring Boot sang Python Flask.
-
 ## Tính năng
 
 - Quản lý thông tin profile người dùng

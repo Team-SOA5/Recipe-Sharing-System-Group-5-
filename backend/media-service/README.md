@@ -1,6 +1,5 @@
 # Media Service - Python Flask
 
-Service quản lý file/media được viết lại từ Java Spring Boot sang Python Flask.
 
 ## Mô tả
 
@@ -10,7 +9,6 @@ Media Service cung cấp các API để:
 - Download file
 - Quản lý metadata của file trong MongoDB
 
-Service này tương đương 100% về chức năng với bản Java Spring Boot gốc, chỉ khác về ngôn ngữ lập trình và framework.
 
 ## Cấu trúc thư mục
 
@@ -170,22 +168,11 @@ Authorization: Bearer <YOUR_JWT_TOKEN>
 
 JWT token được decode để lấy `user_id` (từ claim `sub`) và lưu cùng metadata file.
 
-## So sánh với Java version
 
-| Java Spring Boot | Python Flask |
-|-----------------|--------------|
-| `@RestController` | Blueprint routes |
-| `@Service` | Service class |
-| `MongoRepository` | PyMongo collection |
-| `@Value` annotation | Config class |
-| MapStruct | Manual mapping |
-| OAuth2 Resource Server | Custom JWT decoder |
-| Lombok | dataclass/properties |
-| `application.yaml` | config.py + yaml |
 
 ## Lưu ý
 
-1. **JWT Signature:** Giống như Java version, service này không verify JWT signature, chỉ decode token. Điều này phù hợp khi service nằm sau API Gateway đã verify token.
+1. **JWT Signature:**  service này không verify JWT signature, chỉ decode token. Điều này phù hợp khi service nằm sau API Gateway đã verify token.
 
 2. **File Storage:** Files được lưu trong filesystem tại thư mục được config trong `FILE_STORAGE_DIR`. Đảm bảo thư mục này có quyền ghi.
 
@@ -225,6 +212,3 @@ python app.py
 - Đảm bảo token có claim `sub` chứa user_id
 - Kiểm tra token chưa hết hạn
 
-## License
-
-Same as original Java version

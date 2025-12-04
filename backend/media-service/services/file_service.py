@@ -8,7 +8,7 @@ from exceptions.exceptions import AppException, ErrorCode
 
 class FileService:
     """
-    Service layer cho file management - tương ứng với FileService trong Java
+    Service layer cho file management
     Xử lý business logic cho upload, download, và batch upload
     """
     

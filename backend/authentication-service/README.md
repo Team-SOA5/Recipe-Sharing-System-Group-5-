@@ -1,7 +1,5 @@
 # Authentication Service (Python Flask)
 
-Đây là service xác thực được viết lại từ Java Spring Boot sang Python Flask, giữ nguyên logic nghiệp vụ và luồng xử lý.
-
 ## Tính năng
 
 - Đăng ký tài khoản mới
@@ -157,7 +155,7 @@ Content-Type: application/json
 - Service này cần kết nối với `user-service` (profile service) để tạo profile người dùng
 - Đảm bảo MySQL đã được cài đặt và database `cookpad-identity` đã được tạo
 - JWT signer key nên được thay đổi trong môi trường production
-- Logic nghiệp vụ và luồng xử lý giữ nguyên như phiên bản Java Spring Boot
+
 
 ## Technology Stack
 

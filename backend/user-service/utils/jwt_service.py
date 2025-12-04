@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 def decode_jwt(token):
     """
     Decode JWT token without verification
-    Equivalent to Java CustomJwtDecoder
     """
     try:
         # Remove "Bearer " prefix if present
@@ -33,7 +32,6 @@ def decode_jwt(token):
 def jwt_required(f):
     """
     Decorator for requiring JWT authentication
-    Equivalent to Spring Security's JWT authentication
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):

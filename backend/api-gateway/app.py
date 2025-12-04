@@ -12,8 +12,16 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-# CORS configuration
-CORS(app, resources={r"/*": {"origins": "*", "methods": "*", "headers": "*"}})
+# CORS configuration - Allow all origins, methods, and headers for development
+CORS(app, 
+     resources={r"/*": {
+         "origins": "*",
+         "methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+         "allow_headers": ["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],
+         "expose_headers": ["Content-Type", "Authorization"],
+         "supports_credentials": True,
+         "max_age": 3600
+     }})
 
 # Configuration
 API_PREFIX = "/api/v1"
@@ -23,7 +31,9 @@ PORT = 8888
 SERVICES = {
     "authentication-service": "http://localhost:8080",
     "user-service": "http://localhost:8081",
-    "media-service": "http://localhost:8090"
+    "media-service": "http://localhost:8090",
+    "recipe-service": "http://localhost:8082",
+    "category-service": "http://localhost:8083"
 }
 
 # Public endpoints (no authentication required)
@@ -171,6 +181,24 @@ def user_service(subpath):
 def media_service(subpath):
     """Route requests to media service"""
     return proxy_request(SERVICES['media-service'], request.path, strip_prefix_count=2)
+
+
+# Recipe service routes
+@app.route(f'{API_PREFIX}/recipes', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], strict_slashes=False)
+@app.route(f'{API_PREFIX}/recipes/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+@authentication_filter
+def recipe_service_handler(subpath=''):
+    """Route requests to recipe service"""
+    return proxy_request(SERVICES['recipe-service'], request.path, strip_prefix_count=2)
+
+
+# Category service routes
+@app.route(f'{API_PREFIX}/categories', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], strict_slashes=False)
+@app.route(f'{API_PREFIX}/categories/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+@authentication_filter
+def category_service_handler(subpath=''):
+    """Route requests to category service"""
+    return proxy_request(SERVICES['category-service'], request.path, strip_prefix_count=2)
 
 
 # Health check endpoint

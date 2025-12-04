@@ -16,7 +16,6 @@ user_profile_service = UserProfileService()
 def create():
     """
     Create a new user profile (internal endpoint)
-    Equivalent to Java: @PostMapping
     No authentication required for internal endpoints
     """
     data = request.get_json()
@@ -29,7 +28,6 @@ def create():
 def find_by_username(username):
     """
     Find profile by username (internal endpoint)
-    Equivalent to Java: @GetMapping("/{username}")
     No authentication required for internal endpoints
     """
     user_detail = user_profile_service.find_by_username(username)

@@ -3,7 +3,7 @@ from http import HTTPStatus
 
 
 class ErrorCode(Enum):
-    """Error codes - equivalent to Java ErrorCode enum"""
+    
     
     USER_NOT_EXISTED = (1001, "Người dùng không tồn tại", HTTPStatus.NOT_FOUND)
     UNAUTHENTICATED = (1002, "Vui lòng đăng nhập để tiếp tục", HTTPStatus.UNAUTHORIZED)
@@ -27,7 +27,7 @@ class ErrorCode(Enum):
 
 
 class AppException(Exception):
-    """Application exception - equivalent to Java AppException"""
+    
     
     def __init__(self, error_code: ErrorCode):
         self.error_code = error_code

@@ -1,0 +1,2909 @@
+openapi: 3.0.3
+info:
+  title: Cookpad-like Recipe Sharing API - Microservices Architecture
+  description: |
+    API cho ứng dụng chia sẻ công thức nấu ăn, tương tự Cookpad.
+    
+    **Kiến trúc Microservices:**
+    - API Gateway: http://localhost:8888/api/v1/...
+    
+    Tính năng chính:
+    - Quản lý người dùng và xác thực
+    - Tạo, chỉnh sửa, xóa công thức nấu ăn
+    - Tìm kiếm và lọc công thức
+    - Đánh giá và bình luận
+    - Yêu thích và lưu công thức
+    - Theo dõi người dùng khác
+    - Quản lý danh mục và thẻ tag
+    - Phân tích hồ sơ bệnh án và gợi ý món ăn AI
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8888/api/v1
+    description: API Gateway - Local Development
+
+tags:
+  - name: Authentication Service
+    description: Authentication microservice - Đăng ký, đăng nhập và quản lý phiên làm việc
+  - name: User Service
+    description: User microservice - Quản lý thông tin người dùng
+  - name: Recipe Service
+    description: Recipe microservice - Quản lý công thức nấu ăn
+  - name: Category Service
+    description: Category microservice - Quản lý danh mục món ăn
+  - name: Tag Service
+    description: Tag microservice - Quản lý thẻ tag
+  - name: Comment Service
+    description: Comment microservice - Bình luận trên công thức
+  - name: Rating Service
+    description: Rating microservice - Đánh giá công thức
+  - name: Favorite Service
+    description: Favorite microservice - Lưu công thức yêu thích
+  - name: Follow Service
+    description: Follow microservice - Theo dõi người dùng
+  - name: Search Service
+    description: Search microservice - Tìm kiếm công thức
+  - name: Media Service
+    description: Media microservice - Upload và quản lý hình ảnh
+  - name: Health Service
+    description: Health microservice - Quản lý hồ sơ sức khỏe và bệnh án
+  - name: AI Recommendation Service
+    description: AI microservice - Phân tích và gợi ý món ăn bằng LLM
+  - name: Notification Service
+    description: Notification microservice - Quản lý thông báo và gửi thông báo realtime
+
+
+paths:
+  # ==================== AUTHENTICATION SERVICE ====================
+  /auth/register:
+    post:
+      tags:
+        - Authentication Service
+      summary: Đăng ký tài khoản mới
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - username
+                - fullName
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: SecurePass123!
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 30
+                  example: chef_master
+                fullName:
+                  type: string
+                  example: Nguyễn Văn A
+      responses:
+        '200':
+          description: Đăng ký thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Thành công
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Email hoặc username đã tồn tại
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication Service
+      summary: Đăng nhập
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  example: SecurePass123!
+      responses:
+        '200':
+          description: Đăng nhập thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Thành công
+                  accessToken:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  refreshToken:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication Service
+      summary: Đăng xuất
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+                - accessToken
+              properties:
+                refreshToken:
+                  type: string
+                accessToken:
+                  type: string
+      responses:
+        '200':
+          description: Đăng xuất thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Thành công
+
+  /auth/refresh-token:
+    post:
+      tags:
+        - Authentication Service
+      summary: Làm mới token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+                - accessToken
+              properties:
+                refreshToken:
+                  type: string
+                accessToken:
+                  type: string
+      responses:
+        '200':
+          description: Token mới
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+
+
+  # ==================== USERS ====================
+  /users/me:
+    get:
+      tags:
+        - User Service
+      summary: Lấy thông tin người dùng hiện tại
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Thông tin người dùng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    put:
+      tags:
+        - User Service
+      summary: Cập nhật thông tin người dùng
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                bio:
+                  type: string
+                  maxLength: 500
+                avatar:
+                  type: string
+                  format: uri
+                location:
+                  type: string
+                website:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+
+  /users/me/avatar:
+    put:
+      tags:
+        - User Service
+      summary: Cập nhật avatar người dùng
+      description: Upload và cập nhật ảnh đại diện cho người dùng hiện tại
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - avatar
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+                  description: File ảnh avatar (JPG, PNG, WebP). Tối đa 5MB
+            encoding:
+              avatar:
+                contentType: image/jpeg, image/png, image/webp
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+
+
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+
+
+  /users/{userId}:
+    get:
+      tags:
+        - User Service
+      summary: Lấy thông tin người dùng theo ID
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Thông tin người dùng
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /users/{userId}/recipes:
+    get:
+      tags:
+        - Recipe Service
+      summary: Lấy danh sách công thức của người dùng
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [newest, oldest, most_viewed, most_liked]
+            default: newest
+      responses:
+        '200':
+          description: Danh sách công thức
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recipe'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /users/{userId}/favorites:
+    get:
+      tags:
+        - Favorite Service
+      summary: Lấy danh sách công thức yêu thích của người dùng
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Danh sách công thức yêu thích
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recipe'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /users/{userId}/followers:
+    get:
+      tags:
+        - Follow Service
+      summary: Lấy danh sách người theo dõi
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Danh sách người theo dõi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /users/{userId}/following:
+    get:
+      tags:
+        - Follow Service
+      summary: Lấy danh sách đang theo dõi
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Danh sách đang theo dõi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  # ==================== RECIPE SERVICE ====================
+  /recipes:
+    get:
+      tags:
+        - Recipe Service
+      summary: Lấy danh sách công thức
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+          description: Lọc theo danh mục
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [newest, oldest, most_viewed, most_liked, trending]
+            default: newest
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+            enum: [easy, medium, hard]
+      responses:
+        '200':
+          description: Danh sách công thức
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recipe'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - Recipe Service
+      summary: Tạo công thức mới
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeInput'
+      responses:
+        '200':
+          description: Tạo công thức thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /recipes/{recipeId}:
+    get:
+      tags:
+        - Recipe Service
+      summary: Lấy chi tiết công thức
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Chi tiết công thức
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags:
+        - Recipe Service
+      summary: Cập nhật công thức
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeInput'
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Recipe Service
+      summary: Xóa công thức
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Xóa thành công
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /recipes/{recipeId}/view:
+    post:
+      tags:
+        - Recipe Service
+      summary: Tăng số lượt xem công thức
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Đã cập nhật lượt xem
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  views:
+                    type: integer
+                    example: 1250
+
+  /feed:
+    get:
+      tags:
+        - Recipe Service
+      summary: Lấy feed công thức từ người đang theo dõi
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Feed công thức
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recipe'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /trending/recipes:
+    get:
+      tags:
+        - Recipe Service
+      summary: Công thức đang xu hướng
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: week
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Công thức xu hướng
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recipe'
+
+  # ==================== CATEGORY SERVICE ====================
+  /categories:
+    get:
+      tags:
+        - Category Service
+      summary: Lấy danh sách danh mục
+      responses:
+        '200':
+          description: Danh sách danh mục
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+
+    post:
+      tags:
+        - Category Service
+      summary: Tạo danh mục mới (Admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: Món chay
+                description:
+                  type: string
+                  example: Các món ăn chay healthy
+                icon:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Tạo danh mục thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+  /categories/{categoryId}:
+    get:
+      tags:
+        - Category Service
+      summary: Lấy chi tiết danh mục
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Chi tiết danh mục
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+    put:
+      tags:
+        - Category Service
+      summary: Cập nhật danh mục (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                icon:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+    delete:
+      tags:
+        - Category Service
+      summary: Xóa danh mục (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Xóa thành công
+
+  # ==================== TAG SERVICE ====================
+  /tags:
+    get:
+      tags:
+        - Tag Service
+      summary: Lấy danh sách tags
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Tìm kiếm tag theo tên
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Danh sách tags
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tag'
+
+    post:
+      tags:
+        - Tag Service
+      summary: Tạo tag mới
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                  example: healthy
+      responses:
+        '200':
+          description: Tạo tag thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tag'
+
+  /tags/popular:
+    get:
+      tags:
+        - Tag Service
+      summary: Lấy danh sách tags phổ biến
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Danh sách tags phổ biến
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tag'
+
+  # ==================== COMMENT SERVICE ====================
+  /recipes/{recipeId}/comments:
+    get:
+      tags:
+        - Comment Service
+      summary: Lấy danh sách bình luận của công thức
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [newest, oldest, most_liked]
+            default: newest
+      responses:
+        '200':
+          description: Danh sách bình luận
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - Comment Service
+      summary: Thêm bình luận mới
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+                  example: Món này rất ngon! Cảm ơn bạn đã chia sẻ
+                images:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+                  description: Hình ảnh kèm theo bình luận
+      responses:
+        '200':
+          description: Tạo bình luận thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+
+  /comments/{commentId}:
+    put:
+      tags:
+        - Comment Service
+      summary: Cập nhật bình luận
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - content
+              properties:
+                content:
+                  type: string
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+
+    delete:
+      tags:
+        - Comment Service
+      summary: Xóa bình luận
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Xóa thành công
+
+  /comments/{commentId}/like:
+    post:
+      tags:
+        - Comment Service
+      summary: Thích bình luận
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Đã thích bình luận
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  liked:
+                    type: boolean
+                    example: true
+                  likesCount:
+                    type: integer
+                    example: 15
+
+    delete:
+      tags:
+        - Comment Service
+      summary: Bỏ thích bình luận
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Đã bỏ thích
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  liked:
+                    type: boolean
+                    example: false
+                  likesCount:
+                    type: integer
+                    example: 14
+
+  # ==================== RATING SERVICE ====================
+  /recipes/{recipeId}/ratings:
+    get:
+      tags:
+        - Rating Service
+      summary: Lấy thống kê đánh giá của công thức
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Thống kê đánh giá
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  averageRating:
+                    type: number
+                    format: float
+                    example: 4.5
+                  totalRatings:
+                    type: integer
+                    example: 128
+                  distribution:
+                    type: object
+                    properties:
+                      5:
+                        type: integer
+                        example: 80
+                      4:
+                        type: integer
+                        example: 30
+                      3:
+                        type: integer
+                        example: 10
+                      2:
+                        type: integer
+                        example: 5
+                      1:
+                        type: integer
+                        example: 3
+
+    post:
+      tags:
+        - Rating Service
+      summary: Đánh giá công thức
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rating
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  example: 5
+                review:
+                  type: string
+                  example: Món ăn rất ngon và dễ làm!
+      responses:
+        '200':
+          description: Đánh giá thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rating'
+
+  /recipes/{recipeId}/ratings/me:
+    get:
+      tags:
+        - Rating Service
+      summary: Lấy đánh giá của bản thân
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Đánh giá của bản thân
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rating'
+        '404':
+          description: Chưa có đánh giá
+
+    put:
+      tags:
+        - Rating Service
+      summary: Cập nhật đánh giá
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                review:
+                  type: string
+      responses:
+        '200':
+          description: Cập nhật thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rating'
+
+    delete:
+      tags:
+        - Rating Service
+      summary: Xóa đánh giá
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Xóa thành công
+
+  # ==================== FAVORITE SERVICE ====================
+  /favorites:
+    get:
+      tags:
+        - Favorite Service
+      summary: Lấy danh sách công thức yêu thích của bản thân
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Danh sách yêu thích
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recipe'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /recipes/{recipeId}/favorite:
+    post:
+      tags:
+        - Favorite Service
+      summary: Thêm công thức vào yêu thích
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Đã thêm vào yêu thích
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  favorited:
+                    type: boolean
+                    example: true
+                  favoritesCount:
+                    type: integer
+                    example: 234
+
+    delete:
+      tags:
+        - Favorite Service
+      summary: Xóa công thức khỏi yêu thích
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recipeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Đã xóa khỏi yêu thích
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  favorited:
+                    type: boolean
+                    example: false
+                  favoritesCount:
+                    type: integer
+                    example: 233
+
+  # ==================== FOLLOW SERVICE ====================
+  /users/{userId}/follow:
+    post:
+      tags:
+        - Follow Service
+      summary: Theo dõi người dùng
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Đã theo dõi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  following:
+                    type: boolean
+                    example: true
+                  followersCount:
+                    type: integer
+                    example: 150
+
+    delete:
+      tags:
+        - Follow Service
+      summary: Bỏ theo dõi người dùng
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Đã bỏ theo dõi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  following:
+                    type: boolean
+                    example: false
+                  followersCount:
+                    type: integer
+                    example: 149
+
+  # ==================== SEARCH SERVICE ====================
+  /search/recipes:
+    get:
+      tags:
+        - Search Service
+      summary: Tìm kiếm công thức
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Từ khóa tìm kiếm
+          example: phở bò
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+          description: Lọc theo danh mục
+        - name: tags
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          description: Lọc theo tags
+        - name: difficulty
+          in: query
+          schema:
+            type: string
+            enum: [easy, medium, hard]
+        - name: cookingTime
+          in: query
+          schema:
+            type: string
+            enum: [under_15, 15_30, 30_60, over_60]
+          description: Thời gian nấu (phút)
+        - name: minRating
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+          description: Đánh giá tối thiểu
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [relevance, newest, most_viewed, most_liked, highest_rated]
+            default: relevance
+      responses:
+        '200':
+          description: Kết quả tìm kiếm
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recipe'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                  filters:
+                    type: object
+                    description: Bộ lọc đang áp dụng
+
+  /search/users:
+    get:
+      tags:
+        - Search Service
+      summary: Tìm kiếm người dùng
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Từ khóa tìm kiếm
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Kết quả tìm kiếm
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+  /search/suggestions:
+    get:
+      tags:
+        - Search Service
+      summary: Gợi ý tìm kiếm
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Từ khóa
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Danh sách gợi ý
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      type: string
+                    example: ["phở bò", "phở gà", "phở chay"]
+
+  # ==================== MEDIA SERVICE ====================
+  /media/upload:
+    post:
+      tags:
+        - Media Service
+      summary: Upload hình ảnh
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File hình ảnh
+      responses:
+        '200':
+          description: Upload thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+                    example: https://cdn.cookpad-app.com/images/abc123.jpg
+                  originalFileName:
+                    type: string
+                    format: uri
+                    example: abc123.jpg
+        '400':
+          description: File không hợp lệ hoặc quá lớn
+  /media/batch-upload:
+    post:
+      tags:
+        - Media Service
+      summary: Upload nhiều file cùng lúc
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - files
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  maxItems: 10
+      responses:
+        '200':
+          description: Upload thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploads:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                          format: uri
+
+
+  # ==================== HEALTH SERVICE (NEW) ====================
+  /health/medical-records:
+    get:
+      tags:
+        - Health Service
+      summary: Lấy danh sách hồ sơ bệnh án của người dùng
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processed, failed]
+          description: Lọc theo trạng thái xử lý
+      responses:
+        '200':
+          description: Danh sách hồ sơ bệnh án
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MedicalRecord'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - Health Service
+      summary: Upload hồ sơ bệnh án (PDF)
+      description: |
+        Upload file PDF bệnh án. Hệ thống sẽ:
+        1. Trích xuất text từ PDF (OCR nếu cần)
+        2. Phân tích thông tin y tế
+        3. Lưu vào database
+        4. Trigger AI analysis để gợi ý món ăn
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File PDF hồ sơ bệnh án (Tối đa 10MB)
+                title:
+                  type: string
+                  example: Hồ sơ khám sức khỏe định kỳ 2025
+                notes:
+                  type: string
+                  description: Ghi chú thêm từ người dùng
+                  example: Kết quả xét nghiệm máu tháng 1/2025
+            encoding:
+              file:
+                contentType: application/pdf
+      responses:
+        '201':
+          description: Upload thành công
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Upload hồ sơ bệnh án thành công. Đang xử lý...
+                  medicalRecord:
+                    $ref: '#/components/schemas/MedicalRecord'
+        '400':
+          description: File không hợp lệ
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                invalidFileType:
+                  value:
+                    error:
+                      code: INVALID_FILE_TYPE
+                      message: Chỉ chấp nhận file PDF
+                fileTooLarge:
+                  value:
+                    error:
+                      code: FILE_TOO_LARGE
+                      message: Kích thước file vượt quá 10MB
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /health/medical-records/{recordId}:
+    get:
+      tags:
+        - Health Service
+      summary: Lấy chi tiết hồ sơ bệnh án
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID của hồ sơ bệnh án
+      responses:
+        '200':
+          description: Chi tiết hồ sơ bệnh án
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalRecordDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    delete:
+      tags:
+        - Health Service
+      summary: Xóa hồ sơ bệnh án
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Xóa thành công
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /health/medical-records/{recordId}/reprocess:
+    post:
+      tags:
+        - Health Service
+      summary: Xử lý lại hồ sơ bệnh án
+      description: Chạy lại quá trình phân tích và AI recommendation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Đã gửi yêu cầu xử lý lại
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Đang xử lý lại hồ sơ...
+                  medicalRecord:
+                    $ref: '#/components/schemas/MedicalRecord'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ==================== AI RECOMMENDATION SERVICE (NEW) ====================
+  /ai/analyze:
+    post:
+      tags:
+        - AI Recommendation Service
+      summary: Phân tích hồ sơ bệnh án và gợi ý món ăn
+      description: |
+        **Flow xử lý:**
+        1. Nhận medicalRecordId
+        2. Trích xuất thông tin y tế (bệnh lý, chỉ số, dị ứng...)
+        3. Tìm kiếm recipes phù hợp trong database
+        4. Gửi data + nutrition info → LLM (Google Gemini/OpenAI)
+        5. LLM phân tích và đưa ra gợi ý
+        6. Lưu kết quả vào database
+        7. Trả về recommendations
+        
+        **LLM sử dụng:** Google Gemini 1.5 Flash (Free tier)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - medicalRecordId
+              properties:
+                medicalRecordId:
+                  type: string
+                  description: ID của hồ sơ bệnh án đã upload
+                  example: med_xyz789
+                options:
+                  type: object
+                  description: Tùy chọn phân tích
+                  properties:
+                    includeAllergies:
+                      type: boolean
+                      default: true
+                      description: Tính đến dị ứng thực phẩm
+                    maxRecommendations:
+                      type: integer
+                      default: 10
+                      minimum: 1
+                      maximum: 50
+                      description: Số lượng món ăn gợi ý tối đa
+                    dietaryPreference:
+                      type: string
+                      enum: [all, vegetarian, vegan, low_carb, low_fat, high_protein]
+                      default: all
+                      description: Chế độ ăn ưu tiên
+                    excludeIngredients:
+                      type: array
+                      items:
+                        type: string
+                      description: Danh sách nguyên liệu cần tránh
+                      example: ["đường", "muối", "mì chính"]
+      responses:
+        '200':
+          description: Phân tích thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIRecommendation'
+        '202':
+          description: Đã nhận yêu cầu, đang xử lý (async)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Đang phân tích hồ sơ bệnh án. Vui lòng chờ...
+                  analysisId:
+                    type: string
+                    example: ana_abc123
+                  estimatedTime:
+                    type: integer
+                    description: Thời gian ước tính (giây)
+                    example: 30
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Không tìm thấy hồ sơ bệnh án
+
+  /ai/recommendations:
+    get:
+      tags:
+        - AI Recommendation Service
+      summary: Lấy danh sách gợi ý món ăn từ AI
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: medicalRecordId
+          in: query
+          schema:
+            type: string
+          description: Lọc theo hồ sơ bệnh án
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [newest, score, relevance]
+            default: newest
+          description: Sắp xếp theo
+      responses:
+        '200':
+          description: Danh sách gợi ý
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AIRecommendation'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /ai/recommendations/{recommendationId}:
+    get:
+      tags:
+        - AI Recommendation Service
+      summary: Lấy chi tiết một recommendation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recommendationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Chi tiết recommendation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AIRecommendation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - AI Recommendation Service
+      summary: Xóa recommendation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recommendationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Xóa thành công
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /ai/recommendations/{recommendationId}/feedback:
+    post:
+      tags:
+        - AI Recommendation Service
+      summary: Gửi feedback về recommendation
+      description: Giúp cải thiện chất lượng AI recommendations
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recommendationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - rating
+              properties:
+                rating:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: Đánh giá độ hữu ích (1-5 sao)
+                  example: 5
+                helpful:
+                  type: boolean
+                  description: Gợi ý có hữu ích không
+                  example: true
+                comment:
+                  type: string
+                  description: Nhận xét chi tiết
+                  example: Các món ăn rất phù hợp với tình trạng sức khỏe của tôi
+                issues:
+                  type: array
+                  items:
+                    type: string
+                    enum: [not_relevant, wrong_nutrition, too_complex, allergies_ignored, other]
+                  description: Các vấn đề gặp phải
+      responses:
+        '200':
+          description: Feedback đã được ghi nhận
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Cảm ơn feedback của bạn!
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /ai/chat:
+    post:
+      tags:
+        - AI Recommendation Service
+      summary: Chat với AI về dinh dưỡng
+      description: |
+        Hỏi đáp với AI về:
+        - Giải thích tại sao món ăn phù hợp
+        - Thay thế nguyên liệu
+        - Điều chỉnh công thức
+        - Lời khuyên dinh dưỡng
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  description: Câu hỏi của người dùng
+                  example: Tại sao món phở gà lại phù hợp với tình trạng sức khỏe của tôi?
+                context:
+                  type: object
+                  description: Context để AI hiểu rõ hơn
+                  properties:
+                    medicalRecordId:
+                      type: string
+                      description: ID hồ sơ bệnh án liên quan
+                    recipeId:
+                      type: string
+                      description: ID công thức đang hỏi
+                    conversationId:
+                      type: string
+                      description: ID cuộc hội thoại (để maintain context)
+      responses:
+        '200':
+          description: Câu trả lời từ AI
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Món phở gà rất phù hợp vì...
+                  conversationId:
+                    type: string
+                    description: ID để tiếp tục hội thoại
+                    example: conv_abc123
+                  relatedRecipes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recipe'
+                    description: Các món ăn liên quan
+                  sources:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum: [recipe, medical_record, nutrition_data]
+                        id:
+                          type: string
+                        title:
+                          type: string
+                    description: Nguồn thông tin AI sử dụng
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token để xác thực. Format "Bearer {token}"
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Số trang
+
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Số lượng items mỗi trang
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: usr_abc123
+        username:
+          type: string
+          example: chef_master
+        fullName:
+          type: string
+          example: Nguyễn Văn A
+        avatar:
+          type: string
+          format: uri
+          example: https://cdn.cookpad-app.com/avatars/abc123.jpg
+        bio:
+          type: string
+          example: Đam mê nấu ăn và chia sẻ công thức
+        recipesCount:
+          type: integer
+          example: 45
+        followersCount:
+          type: integer
+          example: 1250
+        followingCount:
+          type: integer
+          example: 320
+        createdAt:
+          type: string
+          format: date-time
+
+    UserDetail:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            email:
+              type: string
+              format: email
+              example: user@example.com
+            location:
+              type: string
+              example: Hà Nội, Việt Nam
+            website:
+              type: string
+              format: uri
+              example: https://myblog.com
+            isFollowing:
+              type: boolean
+              description: Người dùng hiện tại có đang theo dõi không
+              example: false
+
+    Recipe:
+      type: object
+      properties:
+        id:
+          type: string
+          example: rcp_xyz789
+        title:
+          type: string
+          example: Phở bò Hà Nội truyền thống
+        description:
+          type: string
+          example: Công thức nấu phở bò chuẩn vị Hà Nội
+        thumbnail:
+          type: string
+          format: uri
+          example: https://cdn.cookpad-app.com/recipes/xyz789.jpg
+        author:
+          $ref: '#/components/schemas/User'
+        category:
+          $ref: '#/components/schemas/Category'
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+          example: medium
+        cookingTime:
+          type: integer
+          description: Thời gian nấu (phút)
+          example: 120
+        servings:
+          type: integer
+          description: Số người ăn
+          example: 4
+        averageRating:
+          type: number
+          format: float
+          example: 4.8
+        ratingsCount:
+          type: integer
+          example: 256
+        viewsCount:
+          type: integer
+          example: 12500
+        favoritesCount:
+          type: integer
+          example: 890
+        commentsCount:
+          type: integer
+          example: 45
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        isFavorited:
+          type: boolean
+          description: Người dùng hiện tại đã yêu thích chưa
+          example: false
+
+    RecipeDetail:
+      allOf:
+        - $ref: '#/components/schemas/Recipe'
+        - type: object
+          properties:
+            ingredients:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    example: Thịt bò
+                  amount:
+                    type: string
+                    example: 500g
+                  note:
+                    type: string
+                    example: Chọn phần nạc vai
+            instructions:
+              type: array
+              items:
+                type: object
+                properties:
+                  step:
+                    type: integer
+                    example: 1
+                  description:
+                    type: string
+                    example: Luộc xương bò với gừng trong 10 phút
+                  image:
+                    type: string
+                    format: uri
+                  duration:
+                    type: integer
+                    description: Thời gian của bước (phút)
+                    example: 10
+            images:
+              type: array
+              items:
+                type: string
+                format: uri
+            nutritionInfo:
+              type: object
+              properties:
+                calories:
+                  type: integer
+                  example: 450
+                protein:
+                  type: number
+                  example: 25.5
+                carbs:
+                  type: number
+                  example: 60.2
+                fat:
+                  type: number
+                  example: 12.8
+                fiber:
+                  type: number
+                  example: 3.5
+            tips:
+              type: array
+              items:
+                type: string
+              example: ["Xương bò nên luộc sơ để nước phở trong", "Gia vị nêm nếm từ từ"]
+
+    RecipeInput:
+      type: object
+      required:
+        - title
+        - categoryId
+        - difficulty
+        - cookingTime
+        - servings
+        - ingredients
+        - instructions
+      properties:
+        title:
+          type: string
+          minLength: 5
+          maxLength: 200
+          example: Phở bò Hà Nội truyền thống
+        description:
+          type: string
+          maxLength: 1000
+          example: Công thức nấu phở bò chuẩn vị Hà Nội
+        categoryId:
+          type: string
+          example: cat_123
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+          example: medium
+        cookingTime:
+          type: integer
+          minimum: 1
+          example: 120
+        servings:
+          type: integer
+          minimum: 1
+          example: 4
+        thumbnail:
+          type: string
+          format: uri
+        ingredients:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - name
+              - amount
+            properties:
+              name:
+                type: string
+              amount:
+                type: string
+              note:
+                type: string
+        instructions:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - step
+              - description
+            properties:
+              step:
+                type: integer
+              description:
+                type: string
+              image:
+                type: string
+                format: uri
+              duration:
+                type: integer
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+          maxItems: 10
+        tags:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+          example: ["healthy", "traditional", "vietnamese"]
+        nutritionInfo:
+          type: object
+          properties:
+            calories:
+              type: integer
+            protein:
+              type: number
+            carbs:
+              type: number
+            fat:
+              type: number
+            fiber:
+              type: number
+        tips:
+          type: array
+          items:
+            type: string
+          maxItems: 10
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+          example: cat_abc123
+        name:
+          type: string
+          example: Món chính
+        description:
+          type: string
+          example: Các món ăn chính trong bữa ăn
+        icon:
+          type: string
+          format: uri
+          example: https://cdn.cookpad-app.com/icons/main-dish.png
+        recipesCount:
+          type: integer
+          example: 1250
+        createdAt:
+          type: string
+          format: date-time
+
+    Tag:
+      type: object
+      properties:
+        id:
+          type: string
+          example: tag_xyz789
+        name:
+          type: string
+          example: healthy
+        recipesCount:
+          type: integer
+          example: 456
+        createdAt:
+          type: string
+          format: date-time
+
+    Comment:
+      type: object
+      properties:
+        id:
+          type: string
+          example: cmt_abc123
+        content:
+          type: string
+          example: Món này rất ngon! Cảm ơn bạn đã chia sẻ
+        author:
+          $ref: '#/components/schemas/User'
+        images:
+          type: array
+          items:
+            type: string
+            format: uri
+        likesCount:
+          type: integer
+          example: 15
+        isLiked:
+          type: boolean
+          description: Người dùng hiện tại đã thích chưa
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Rating:
+      type: object
+      properties:
+        id:
+          type: string
+          example: rat_xyz789
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        review:
+          type: string
+          example: Món ăn rất ngon và dễ làm!
+        author:
+          $ref: '#/components/schemas/User'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Pagination:
+      type: object
+      properties:
+        currentPage:
+          type: integer
+          example: 1
+        totalPages:
+          type: integer
+          example: 10
+        totalItems:
+          type: integer
+          example: 200
+        itemsPerPage:
+          type: integer
+          example: 20
+        hasNextPage:
+          type: boolean
+          example: true
+        hasPreviousPage:
+          type: boolean
+          example: false
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 1001
+        message:
+          type: string
+          example: Dữ liệu không hợp lệ
+
+    MedicalRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          example: med_xyz789
+        userId:
+          type: string
+          example: usr_abc123
+        title:
+          type: string
+          example: Khám sức khỏe định kỳ 2025
+        notes:
+          type: string
+          example: Kết quả xét nghiệm máu tháng 1/2025
+        fileUrl:
+          type: string
+          format: uri
+          example: https://cdn.cookpad-app.com/medical/med_xyz789.pdf
+          description: URL file PDF bệnh án
+        status:
+          type: string
+          enum: [pending, processing, processed, failed]
+          example: processed
+          description: |
+            - pending: Chờ xử lý
+            - processing: Đang xử lý
+            - processed: Đã xử lý xong
+            - failed: Xử lý thất bại
+        uploadedAt:
+          type: string
+          format: date-time
+          example: 2025-11-14T04:05:24Z
+        processedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: 2025-11-14T04:06:15Z
+        errorMessage:
+          type: string
+          nullable: true
+          description: Thông báo lỗi nếu status = failed
+          example: null
+
+    MedicalRecordDetail:
+      allOf:
+        - $ref: '#/components/schemas/MedicalRecord'
+        - type: object
+          properties:
+            extractedText:
+              type: string
+              description: Text được trích xuất từ PDF
+              example: |
+                BỆNH VIỆN ĐA KHOA TRUNG ƯƠNG
+                HỒ SƠ BỆNH ÁN
+                Họ tên: Nguyễn Văn A
+                Tuổi: 45
+                Chẩn đoán: Đái tháo đường type 2...
+            extractedData:
+              type: object
+              description: Dữ liệu đã parse từ text
+              properties:
+                patientInfo:
+                  type: object
+                  properties:
+                    fullName:
+                      type: string
+                      example: Nguyễn Văn A
+                    age:
+                      type: integer
+                      example: 45
+                    gender:
+                      type: string
+                      enum: [male, female, other]
+                      example: male
+                    bloodType:
+                      type: string
+                      example: O+
+                diagnosis:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Đái tháo đường type 2", "Huyết áp cao"]
+            healthConditions:
+              type: array
+              items:
+                $ref: '#/components/schemas/HealthCondition'
+              description: Các tình trạng sức khỏe
+            allergies:
+              type: array
+              items:
+                type: string
+              example: ["Hải sản", "Lạc"]
+              description: Dị ứng thực phẩm
+            medications:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    example: Metformin
+                  dosage:
+                    type: string
+                    example: 500mg
+                  frequency:
+                    type: string
+                    example: 2 lần/ngày
+                  purpose:
+                    type: string
+                    example: Kiểm soát đường huyết
+              description: Thuốc đang sử dụng
+            labResults:
+              type: object
+              description: Kết quả xét nghiệm
+              properties:
+                bloodSugar:
+                  type: object
+                  properties:
+                    value:
+                      type: number
+                      example: 145
+                    unit:
+                      type: string
+                      example: mg/dL
+                    status:
+                      type: string
+                      enum: [normal, high, low]
+                      example: high
+                    testedAt:
+                      type: string
+                      format: date-time
+                cholesterol:
+                  type: object
+                  properties:
+                    total:
+                      type: number
+                      example: 220
+                    ldl:
+                      type: number
+                      example: 130
+                    hdl:
+                      type: number
+                      example: 45
+                    unit:
+                      type: string
+                      example: mg/dL
+                bloodPressure:
+                  type: object
+                  properties:
+                    systolic:
+                      type: integer
+                      example: 140
+                    diastolic:
+                      type: integer
+                      example: 90
+                    unit:
+                      type: string
+                      example: mmHg
+                    status:
+                      type: string
+                      enum: [normal, high, low]
+                      example: high
+                bmi:
+                  type: object
+                  properties:
+                    value:
+                      type: number
+                      example: 28.5
+                    status:
+                      type: string
+                      enum: [underweight, normal, overweight, obese]
+                      example: overweight
+            dietaryRestrictions:
+              type: array
+              items:
+                type: string
+              example: ["Hạn chế đường", "Ít muối", "Tránh thức ăn nhiều dầu mỡ"]
+              description: Chế độ ăn cần tuân thủ
+            doctorNotes:
+              type: string
+              example: Bệnh nhân cần kiểm soát đường huyết và giảm cân. Nên ăn nhiều rau xanh, hạn chế tinh bột.
+              description: Ghi chú từ bác sĩ
+            aiRecommendations:
+              type: array
+              items:
+                type: string
+              description: Link tới các AI recommendations đã tạo
+              example: ["rec_abc123", "rec_def456"]
+
+    HealthCondition:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Đái tháo đường type 2
+        severity:
+          type: string
+          enum: [mild, moderate, severe]
+          example: moderate
+          description: Mức độ nghiêm trọng
+        diagnosedDate:
+          type: string
+          format: date
+          example: 2024-03-15
+          description: Ngày chẩn đoán
+        notes:
+          type: string
+          example: Cần kiểm soát đường huyết thường xuyên
+        isChronic:
+          type: boolean
+          example: true
+          description: Bệnh mãn tính hay không
+
+    AIRecommendation:
+      type: object
+      properties:
+        id:
+          type: string
+          example: rec_abc123
+        medicalRecordId:
+          type: string
+          example: med_xyz789
+        userId:
+          type: string
+          example: usr_abc123
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+          example: completed
+        summary:
+          type: string
+          example: Dựa trên hồ sơ bệnh án, chúng tôi gợi ý 10 món ăn phù hợp với tình trạng sức khỏe của bạn
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeRecommendation'
+          description: Danh sách món ăn được gợi ý
+        totalRecommendations:
+          type: integer
+          example: 10
+        healthContext:
+          type: object
+          description: Context sức khỏe được AI phân tích
+          properties:
+            mainConditions:
+              type: array
+              items:
+                type: string
+              example: ["Đái tháo đường type 2", "Huyết áp cao"]
+            dietaryNeeds:
+              type: array
+              items:
+                type: string
+              example: ["Low carb", "Low sodium", "High fiber"]
+            avoidIngredients:
+              type: array
+              items:
+                type: string
+              example: ["Đường", "Muối", "Thức ăn chiên"]
+        aiModel:
+          type: string
+          example: gemini-1.5-flash
+          description: Model AI được sử dụng
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          example: 0.92
+          description: Độ tin cậy của AI (0-1)
+        processingTime:
+          type: integer
+          description: Thời gian xử lý (giây)
+          example: 12
+        generatedAt:
+          type: string
+          format: date-time
+          example: 2025-11-14T04:06:30Z
+        feedback:
+          type: object
+          nullable: true
+          description: Feedback từ người dùng
+          properties:
+            rating:
+              type: integer
+              minimum: 1
+              maximum: 5
+            helpful:
+              type: boolean
+            comment:
+              type: string
+            submittedAt:
+              type: string
+              format: date-time
+
+    RecipeRecommendation:
+      type: object
+      properties:
+        recipe:
+          $ref: '#/components/schemas/RecipeDetail'
+          description: Thông tin công thức đầy đủ
+        score:
+          type: integer
+          minimum: 0
+          maximum: 100
+          example: 95
+          description: Điểm phù hợp (0-100)
+        rank:
+          type: integer
+          example: 1
+          description: Thứ hạng trong danh sách gợi ý
+        reasons:
+          type: array
+          items:
+            type: string
+          example:
+            - Ít calories (150 cal), phù hợp với người cần giảm cân
+            - Ít carbs (20g), tốt cho người tiểu đường
+            - Giàu chất xơ, hỗ trợ tiêu hóa
+            - Không chứa các chất gây dị ứng đã ghi nhận
+          description: Lý do món ăn phù hợp
+        nutritionalMatch:
+          type: object
+          description: Đánh giá dinh dưỡng
+          properties:
+            calories:
+              type: object
+              properties:
+                value:
+                  type: integer
+                  example: 150
+                recommendation:
+                  type: string
+                  example: 200-400
+                status:
+                  type: string
+                  enum: [good, acceptable, caution]
+                  example: good
+            carbs:
+              type: object
+              properties:
+                value:
+                  type: number
+                  example: 20
+                recommendation:
+                  type: string
+                  example: <30g
+                status:
+                  type: string
+                  enum: [good, acceptable, caution]
+                  example: good
+            protein:
+              type: object
+              properties:
+                value:
+                  type: number
+                  example: 8
+                recommendation:
+                  type: string
+                  example: 7g
+                status:
+                  type: string
+                  enum: [good, acceptable, caution]
+                  example: good
+            fat:
+              type: object
+              properties:
+                value:
+                  type: number
+                  example: 3
+                recommendation:
+                  type: string
+                  example: <10g
+                status:
+                  type: string
+                  enum: [good, acceptable, caution]
+                  example: good
+            sodium:
+              type: object
+              properties:
+                value:
+                  type: number
+                  example: 450
+                recommendation:
+                  type: string
+                  example: <500mg
+                status:
+                  type: string
+                  enum: [good, acceptable, caution]
+                  example: good
+        warnings:
+          type: array
+          items:
+            type: string
+          example: []
+          description: Cảnh báo (nếu có)
+        alternatives:
+          type: array
+          items:
+            type: object
+            properties:
+              recipeId:
+                type: string
+              title:
+                type: string
+              reason:
+                type: string
+          example:
+            - recipeId: rcp_002
+              title: Canh chua cá lóc
+              reason: Cùng category, ít calories hơn
+          description: Các món ăn thay thế tương tự
+        tips:
+          type: array
+          items:
+            type: string
+          example:
+            - Có thể giảm lượng muối xuống còn 1/2 thìa
+            - Thêm rau xanh để tăng chất xơ
+          description: Lời khuyên điều chỉnh công thức
+
+  responses:
+    BadRequest:
+      description: Yêu cầu không hợp lệ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Chưa xác thực
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 1002
+            message: Vui lòng đăng nhập để tiếp tục
+
+
+    Forbidden:
+      description: Không có quyền truy cập
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 1003
+            message: Bạn không có quyền thực hiện thao tác này
+
+
+    NotFound:
+      description: Không tìm thấy tài nguyên
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: 1004
+            message: Không tìm thấy tài nguyên yêu cầu
