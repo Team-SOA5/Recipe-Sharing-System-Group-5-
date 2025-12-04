@@ -25,8 +25,10 @@ export default function Home() {
         recipeAPI.getRecipes(filters),
         categoryAPI.getCategories(),
       ])
-      setRecipes(recipesData.data || [])
-      setCategories(categoriesData.data || [])
+      // Recipes trả về { data: [...], pagination: {...} }
+      setRecipes(recipesData?.data || recipesData || [])
+      // Categories trả về { data: [...] } từ category service
+      setCategories(categoriesData?.data || categoriesData || [])
     } catch (error) {
       toast.error('Không thể tải dữ liệu')
       console.error(error)

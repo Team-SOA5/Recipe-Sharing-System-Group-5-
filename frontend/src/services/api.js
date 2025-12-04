@@ -10,6 +10,9 @@ const API_BASE_URL = 'http://localhost:8888/api/v1'
 // Auth Service URL (gọi trực tiếp)
 const AUTH_SERVICE_URL = 'http://localhost:8080'
 
+// Category Service URL (gọi trực tiếp)
+const CATEGORY_SERVICE_URL = 'http://localhost:8083'
+
 // Axios instance cho API Gateway (các service khác)
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -25,6 +28,28 @@ const authApi = axios.create({
     'Content-Type': 'application/json',
   },
 })
+
+// Axios instance riêng cho Category Service
+const categoryApi = axios.create({
+  baseURL: CATEGORY_SERVICE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+// Interceptor để thêm token vào header cho Category Service
+categoryApi.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
 
 // Interceptor để thêm token vào header
 api.interceptors.request.use(
@@ -220,12 +245,64 @@ export const recipeAPI = {
   getTrending: (params) => api.get('/trending/recipes', { params }),
 }
 
-// Category API
+// Category API - Gọi trực tiếp đến Category Service
 export const categoryAPI = {
-  getCategories: () => 
-    callAPI(mockAPI.getCategories, () => api.get('/categories')),
-  
-  getCategory: (id) => api.get(`/categories/${id}`),
+  getCategories: async () => {
+    if (USE_MOCK) {
+      return await mockAPI.getCategories()
+    }
+    try {
+      const response = await categoryApi.get('/categories')
+      // Category service trả về: { data: [...] }
+      return response.data
+    } catch (error) {
+      console.error('Category API error:', error)
+      throw error
+    }
+  },
+
+  getCategory: async (id) => {
+    if (USE_MOCK) {
+      return await mockAPI.getCategory(id)
+    }
+    try {
+      const response = await categoryApi.get(`/categories/${id}`)
+      return response.data
+    } catch (error) {
+      console.error('Category API error:', error)
+      throw error
+    }
+  },
+
+  createCategory: async (data) => {
+    try {
+      const response = await categoryApi.post('/categories', data)
+      return response.data
+    } catch (error) {
+      console.error('Category API error:', error)
+      throw error
+    }
+  },
+
+  updateCategory: async (id, data) => {
+    try {
+      const response = await categoryApi.put(`/categories/${id}`, data)
+      return response.data
+    } catch (error) {
+      console.error('Category API error:', error)
+      throw error
+    }
+  },
+
+  deleteCategory: async (id) => {
+    try {
+      const response = await categoryApi.delete(`/categories/${id}`)
+      return response.data
+    } catch (error) {
+      console.error('Category API error:', error)
+      throw error
+    }
+  },
 }
 
 // Tag API
