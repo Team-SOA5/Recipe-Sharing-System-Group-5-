@@ -26,12 +26,18 @@ export default function Home() {
         categoryAPI.getCategories(),
       ])
       // Recipes trả về { data: [...], pagination: {...} }
+      console.log('Recipes data:', recipesData)
       setRecipes(recipesData?.data || recipesData || [])
       // Categories trả về { data: [...] } từ category service
+      console.log('Categories data:', categoriesData)
       setCategories(categoriesData?.data || categoriesData || [])
     } catch (error) {
       toast.error('Không thể tải dữ liệu')
-      console.error(error)
+      console.error('Load data error:', error)
+      console.error('Error details:', error.response?.data || error.message)
+      // Set empty arrays để tránh lỗi render
+      setRecipes([])
+      setCategories([])
     } finally {
       setLoading(false)
     }

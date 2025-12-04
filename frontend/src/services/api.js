@@ -13,6 +13,12 @@ const AUTH_SERVICE_URL = 'http://localhost:8080'
 // Category Service URL (gọi trực tiếp)
 const CATEGORY_SERVICE_URL = 'http://localhost:8083'
 
+// User Service URL (gọi trực tiếp)
+const USER_SERVICE_URL = 'http://localhost:8081'
+
+// Recipe Service URL (gọi trực tiếp)
+const RECIPE_SERVICE_URL = 'http://localhost:8082'
+
 // Axios instance cho API Gateway (các service khác)
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -37,8 +43,52 @@ const categoryApi = axios.create({
   },
 })
 
+// Axios instance riêng cho User Service
+const userApi = axios.create({
+  baseURL: USER_SERVICE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+// Axios instance riêng cho Recipe Service
+const recipeApi = axios.create({
+  baseURL: RECIPE_SERVICE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
 // Interceptor để thêm token vào header cho Category Service
 categoryApi.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+// Interceptor để thêm token vào header cho User Service
+userApi.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+// Interceptor để thêm token vào header cho Recipe Service
+recipeApi.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token')
     if (token) {
@@ -209,40 +259,155 @@ export const authAPI = {
     }
   },
   
-  // User profile API - vẫn gọi qua API Gateway hoặc User Service
-  getCurrentUser: () => 
-    callAPI(mockAPI.getCurrentUser, () => api.get('/users/me')),
+  // User profile API - gọi trực tiếp đến User Service
+  getCurrentUser: async () => {
+    if (USE_MOCK) {
+      return mockAPI.getCurrentUser()
+    }
+    try {
+      // User service trả về: { id, username, fullName, avatar, bio, ... }
+      const response = await userApi.get('/users/me')
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
   
-  updateProfile: (data) => api.put('/users/me', data),
+  updateProfile: async (data) => {
+    if (USE_MOCK) {
+      return { message: 'Profile updated' }
+    }
+    try {
+      // User service trả về: { id, username, fullName, avatar, bio, ... }
+      const response = await userApi.put('/users/me', data)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
   
-  updateAvatar: (file) => {
-    const formData = new FormData()
-    formData.append('avatar', file)
-    return api.put('/users/me/avatar', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+  updateAvatar: async (file) => {
+    if (USE_MOCK) {
+      return { avatar: 'https://i.pravatar.cc/150?img=1' }
+    }
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      // User service trả về: { id, username, fullName, avatar, bio, ... }
+      const response = await userApi.put('/users/me/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return response.data
+    } catch (error) {
+      throw error
+    }
   },
 }
 
-// Recipe API
+// Recipe API - gọi trực tiếp đến Recipe Service
 export const recipeAPI = {
-  getRecipes: (params) => 
-    callAPI(mockAPI.getRecipes, () => api.get('/recipes', { params }), params),
+  getRecipes: async (params = {}) => {
+    if (USE_MOCK) {
+      return mockAPI.getRecipes(params)
+    }
+    try {
+      // Recipe service trả về: { data: [...], pagination: {...} }
+      const response = await recipeApi.get('/recipes', { params })
+      // Axios tự động parse response.data, nên response.data đã là object JSON
+      return response.data
+    } catch (error) {
+      console.error('Recipe API error:', error)
+      console.error('Error response:', error.response?.data)
+      throw error
+    }
+  },
   
-  getRecipe: (id) => 
-    callAPI(() => mockAPI.getRecipe(id), () => api.get(`/recipes/${id}`)),
+  getRecipe: async (id) => {
+    if (USE_MOCK) {
+      return mockAPI.getRecipe(id)
+    }
+    try {
+      // Recipe service trả về: { id, title, description, ... }
+      const response = await recipeApi.get(`/recipes/${id}`)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
   
-  createRecipe: (data) => api.post('/recipes', data),
+  createRecipe: async (data) => {
+    if (USE_MOCK) {
+      return { id: 'new_recipe_id', ...data }
+    }
+    try {
+      const response = await recipeApi.post('/recipes', data)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
   
-  updateRecipe: (id, data) => api.put(`/recipes/${id}`, data),
+  updateRecipe: async (id, data) => {
+    if (USE_MOCK) {
+      return { id, ...data }
+    }
+    try {
+      const response = await recipeApi.put(`/recipes/${id}`, data)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
   
-  deleteRecipe: (id) => api.delete(`/recipes/${id}`),
+  deleteRecipe: async (id) => {
+    if (USE_MOCK) {
+      return { message: 'Deleted' }
+    }
+    try {
+      const response = await recipeApi.delete(`/recipes/${id}`)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
   
-  incrementView: (id) => api.post(`/recipes/${id}/view`),
+  incrementView: async (id) => {
+    if (USE_MOCK) {
+      return { views: 1 }
+    }
+    try {
+      const response = await recipeApi.post(`/recipes/${id}/view`)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
   
-  getFeed: (params) => api.get('/feed', { params }),
+  getFeed: async (params = {}) => {
+    if (USE_MOCK) {
+      return mockAPI.getRecipes(params)
+    }
+    try {
+      // Recipe service trả về: { data: [...] }
+      const response = await recipeApi.get('/recipes/feed', { params })
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
   
-  getTrending: (params) => api.get('/trending/recipes', { params }),
+  getTrending: async (params = {}) => {
+    if (USE_MOCK) {
+      return mockAPI.getRecipes(params)
+    }
+    try {
+      // Recipe service trả về: { data: [...] }
+      const response = await recipeApi.get('/recipes/trending/recipes', { params })
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
 }
 
 // Category API - Gọi trực tiếp đến Category Service
@@ -390,8 +555,18 @@ export const mediaAPI = {
 
 // User API
 export const userAPI = {
-  getUser: (userId) =>
-    callAPI(() => mockAPI.getUser(userId), () => api.get(`/users/${userId}`)),
+  getUser: async (userId) => {
+    if (USE_MOCK) {
+      return mockAPI.getUser(userId)
+    }
+    try {
+      // User service trả về: { id, username, fullName, avatar, bio, ... }
+      const response = await userApi.get(`/users/${userId}`)
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
   
   getUserRecipes: (userId, params) =>
     callAPI(() => mockAPI.getUserRecipes(userId, params), () => api.get(`/users/${userId}/recipes`, { params })),

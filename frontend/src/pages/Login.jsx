@@ -13,13 +13,18 @@ export default function Login() {
     e.preventDefault()
     setLoading(true)
     
-    const result = await login(formData.email, formData.password)
-    
-    if (result.success) {
-      navigate('/')
+    try {
+      const result = await login(formData.email, formData.password)
+      
+      if (result.success) {
+        navigate('/')
+      }
+    } catch (error) {
+      console.error('Login error:', error)
+      toast.error('Có lỗi xảy ra khi đăng nhập')
+    } finally {
+      setLoading(false)
     }
-    
-    setLoading(false)
   }
 
   return (

@@ -29,10 +29,19 @@ export const AuthProvider = ({ children }) => {
     try {
       const data = await authAPI.getCurrentUser()
       setUser(data)
+      return { success: true, user: data }
     } catch (error) {
       console.error('Failed to fetch user:', error)
-      localStorage.removeItem('token')
-      setToken(null)
+      // Nếu là lỗi 404 (user chưa có profile), không xóa token
+      // Chỉ xóa token nếu là lỗi 401 (unauthorized)
+      if (error.response?.status === 401) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
+        setToken(null)
+        setUser(null)
+      }
+      // Nếu là lỗi khác (404, 500, etc), vẫn giữ token nhưng không set user
+      return { success: false, error }
     } finally {
       setLoading(false)
     }
@@ -54,9 +63,36 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('refreshToken', refreshToken)
       }
       setToken(accessToken)
-      await fetchUser()
-      toast.success('Đăng nhập thành công!')
-      return { success: true }
+      
+      // Đợi fetchUser hoàn thành với timeout, nhưng không block nếu fail
+      try {
+        // Tạo promise với timeout 5 giây
+        const fetchUserPromise = fetchUser()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Timeout')), 5000)
+        )
+        
+        const fetchResult = await Promise.race([fetchUserPromise, timeoutPromise])
+        
+        // Nếu fetchUser thành công hoặc chỉ là lỗi 404 (user chưa có profile), vẫn cho phép đăng nhập
+        if (fetchResult.success || (fetchResult.error?.response?.status === 404)) {
+          toast.success('Đăng nhập thành công!')
+          return { success: true }
+        }
+        // Nếu là lỗi 401, đăng nhập thất bại
+        if (fetchResult.error?.response?.status === 401) {
+          toast.error('Phiên đăng nhập không hợp lệ')
+          return { success: false, error: 'Phiên đăng nhập không hợp lệ' }
+        }
+        // Các lỗi khác, vẫn cho phép đăng nhập (có thể user chưa có profile)
+        toast.success('Đăng nhập thành công!')
+        return { success: true }
+      } catch (fetchError) {
+        // Nếu fetchUser timeout hoặc throw error, vẫn cho phép đăng nhập
+        console.warn('Could not fetch user profile, but login succeeded:', fetchError)
+        toast.success('Đăng nhập thành công!')
+        return { success: true }
+      }
     } catch (error) {
       const message = error.response?.data?.message || 'Đăng nhập thất bại'
       toast.error(message)
@@ -101,7 +137,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    isAuthenticated: !!token && !!user,
+    isAuthenticated: !!token, // Chỉ cần token, không cần user (user có thể chưa có profile)
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
