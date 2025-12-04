@@ -16,8 +16,6 @@ info:
     - Theo dõi người dùng khác
     - Quản lý danh mục và thẻ tag
     - Phân tích hồ sơ bệnh án và gợi ý món ăn AI
-    
-    Vào endpoint sau để xem Swagger UI: http://localhost:5000/api/docs/ (đăng nhập và truyền token vào Authorize)
   version: 1.0.0
 
 servers:

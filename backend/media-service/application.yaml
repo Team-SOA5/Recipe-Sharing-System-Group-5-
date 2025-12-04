@@ -1,0 +1,16 @@
+server:
+  port: 8090
+  servlet:
+    context-path: /media
+
+spring:
+  application:
+    name: media-service
+  data:
+    mongodb:
+      uri: mongodb://root:root@localhost:27017/file-service?authSource=admin
+
+app:
+  file:
+    storage-dir: "media-service/file-storage"
+    download-prefix: http://localhost:8888/api/v1/media/download/
