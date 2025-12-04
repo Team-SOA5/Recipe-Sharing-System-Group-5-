@@ -41,8 +41,18 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await authAPI.login(email, password)
-      const { accessToken } = response
+      // Auth service trả về: { message, accessToken, refreshToken }
+      const { accessToken, refreshToken } = response
+      
+      if (!accessToken) {
+        toast.error('Đăng nhập thất bại: Không nhận được token')
+        return { success: false, error: 'Không nhận được token' }
+      }
+      
       localStorage.setItem('token', accessToken)
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken)
+      }
       setToken(accessToken)
       await fetchUser()
       toast.success('Đăng nhập thành công!')
@@ -68,11 +78,16 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await authAPI.logout()
+      const accessToken = localStorage.getItem('token')
+      const refreshToken = localStorage.getItem('refreshToken')
+      if (accessToken && refreshToken) {
+        await authAPI.logout(accessToken, refreshToken)
+      }
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
       localStorage.removeItem('token')
+      localStorage.removeItem('refreshToken')
       setToken(null)
       setUser(null)
       toast.success('Đã đăng xuất')

@@ -2,12 +2,25 @@ import axios from 'axios'
 import { mockAPI } from './mockData'
 
 // Flag để bật/tắt mock mode
-const USE_MOCK = true // Đặt false khi có backend thật
+const USE_MOCK = false // Đặt false khi có backend thật
 
+// API Gateway URL (cho các service khác)
 const API_BASE_URL = 'http://localhost:8888/api/v1'
 
+// Auth Service URL (gọi trực tiếp)
+const AUTH_SERVICE_URL = 'http://localhost:8080'
+
+// Axios instance cho API Gateway (các service khác)
 const api = axios.create({
   baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+// Axios instance riêng cho Auth Service
+const authApi = axios.create({
+  baseURL: AUTH_SERVICE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -27,14 +40,47 @@ api.interceptors.request.use(
   }
 )
 
-// Interceptor để xử lý lỗi
+// Interceptor để xử lý lỗi và refresh token cho API Gateway
 api.interceptors.response.use(
   (response) => response.data,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
+  async (error) => {
+    const originalRequest = error.config
+    
+    // Nếu lỗi 401 và chưa retry
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+      
+      const refreshToken = localStorage.getItem('refreshToken')
+      const accessToken = localStorage.getItem('token')
+      
+      // Nếu có refreshToken, thử refresh token
+      if (refreshToken && accessToken) {
+        try {
+          const newTokens = await authAPI.refreshToken(accessToken, refreshToken)
+          if (newTokens.accessToken) {
+            localStorage.setItem('token', newTokens.accessToken)
+            if (newTokens.refreshToken) {
+              localStorage.setItem('refreshToken', newTokens.refreshToken)
+            }
+            // Retry request với token mới
+            originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`
+            return api(originalRequest)
+          }
+        } catch (refreshError) {
+          // Refresh token thất bại, đăng xuất
+          localStorage.removeItem('token')
+          localStorage.removeItem('refreshToken')
+          window.location.href = '/login'
+          return Promise.reject(refreshError)
+        }
+      } else {
+        // Không có refreshToken, đăng xuất
+        localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
+        window.location.href = '/login'
+      }
     }
+    
     return Promise.reject(error)
   }
 )
@@ -51,17 +97,94 @@ const callAPI = async (mockFn, realFn, ...args) => {
   return realFn(...args)
 }
 
-// Auth API
+// Auth API - Gọi trực tiếp đến Auth Service
 export const authAPI = {
-  login: (email, password) => 
-    callAPI(mockAPI.login, () => api.post('/auth/login', { email, password }), email, password),
+  login: async (email, password) => {
+    if (USE_MOCK) {
+      return await mockAPI.login(email, password)
+    }
+    try {
+      const response = await authApi.post('/auth/login', { email, password })
+      // Auth service trả về: { message, accessToken, refreshToken }
+      return response.data
+    } catch (error) {
+      // Xử lý lỗi từ auth service
+      if (error.response?.data) {
+        throw {
+          response: {
+            data: {
+              code: error.response.data.code,
+              message: error.response.data.message || 'Đăng nhập thất bại'
+            }
+          }
+        }
+      }
+      throw error
+    }
+  },
   
-  register: (data) => 
-    callAPI(mockAPI.register, () => api.post('/auth/register', data), data),
+  register: async (data) => {
+    if (USE_MOCK) {
+      return await mockAPI.register(data)
+    }
+    try {
+      const response = await authApi.post('/auth/register', {
+        email: data.email,
+        password: data.password,
+        username: data.username,
+        fullName: data.fullName
+      })
+      // Auth service trả về: { message, user: {...} }
+      return response.data
+    } catch (error) {
+      if (error.response?.data) {
+        throw {
+          response: {
+            data: {
+              code: error.response.data.code,
+              message: error.response.data.message || 'Đăng ký thất bại'
+            }
+          }
+        }
+      }
+      throw error
+    }
+  },
   
-  logout: () => 
-    callAPI(() => Promise.resolve({}), () => api.post('/auth/logout')),
+  logout: async (accessToken, refreshToken) => {
+    if (USE_MOCK) {
+      return Promise.resolve({})
+    }
+    try {
+      const response = await authApi.post('/auth/logout', {
+        accessToken,
+        refreshToken
+      })
+      return response.data
+    } catch (error) {
+      // Không throw error khi logout để đảm bảo user vẫn có thể đăng xuất
+      console.error('Logout error:', error)
+      return { message: 'Đã đăng xuất' }
+    }
+  },
   
+  refreshToken: async (accessToken, refreshToken) => {
+    if (USE_MOCK) {
+      return { accessToken: 'new_token', refreshToken: 'new_refresh_token' }
+    }
+    try {
+      const response = await authApi.post('/auth/refresh-token', {
+        accessToken,
+        refreshToken
+      })
+      // Auth service trả về: { accessToken, refreshToken }
+      return response.data
+    } catch (error) {
+      throw error
+    }
+  },
+  
+  // User profile API - vẫn gọi qua API Gateway hoặc User Service
   getCurrentUser: () => 
     callAPI(mockAPI.getCurrentUser, () => api.get('/users/me')),
   
