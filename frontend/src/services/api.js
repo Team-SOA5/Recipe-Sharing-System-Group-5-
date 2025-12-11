@@ -170,6 +170,32 @@ export const authAPI = {
     }
   },
   
+  // Google OAuth
+  getGoogleAuthUrl: async () => {
+    if (USE_MOCK) {
+      return { auth_url: 'https://accounts.google.com/o/oauth2/v2/auth', state: 'mock_state' }
+    }
+    try {
+      const response = await api.get('/auth/google')
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+  
+  googleCallback: async (code, codeVerifier, state) => {
+    if (USE_MOCK) {
+      return { accessToken: 'mock_google_token', refreshToken: 'mock_refresh_token', user: { id: '1', email: 'test@gmail.com' } }
+    }
+    try {
+      const response = await api.post('/auth/google/callback', { code, codeVerifier, state })
+      return response
+    } catch (error) {
+      throw error
+    }
+  },
+  
+  // User profile API
   getCurrentUser: async () => {
     if (USE_MOCK) {
       return mockAPI.getCurrentUser()
