@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from services.authentication_service import AuthenticationService
 from services.user_service import UserService
+from services.google_oauth_service import GoogleOAuthService
 from dto.requests import (
     AuthenticationRequest, 
     IntrospectRequest, 
@@ -9,6 +10,7 @@ from dto.requests import (
     UserCreationRequest
 )
 from dto.responses import ApiResponse
+from exceptions.exceptions import AppException
 from utils.validators import validate_email, validate_password, validate_username
 import logging
 
@@ -162,3 +164,62 @@ def register():
             'createdAt': user.created_at
         }
     }), 200
+
+
+@auth_bp.route('/google', methods=['GET'])
+def google_login():
+    """
+    Google OAuth login endpoint - get authorization URL
+    GET /auth/google
+    """
+    try:
+        result = GoogleOAuthService.get_google_auth_url()
+        return jsonify(result), 200
+    except Exception as e:
+        logger.error(f"Failed to generate Google auth URL: {str(e)}")
+        return jsonify({
+            'code': 1001,
+            'message': 'Không thể kết nối với Google',
+            'data': None
+        }), 500
+
+
+@auth_bp.route('/google/callback', methods=['POST'])
+def google_callback():
+    """
+    Google OAuth callback endpoint - handle authorization code
+    POST /auth/google/callback
+    """
+    data = request.get_json()
+    code = data.get('code')
+    code_verifier = data.get('codeVerifier')
+    
+    if not code or not code_verifier:
+        return jsonify({
+            'code': 1002,
+            'message': 'Thiếu mã xác thực từ Google',
+            'data': None
+        }), 400
+    
+    try:
+        result = GoogleOAuthService.authenticate_with_google(code, code_verifier)
+        return jsonify({
+            'message': result['message'],
+            'accessToken': result['access_token'],
+            'refreshToken': result['refresh_token'],
+            'user': result['user']
+        }), 200
+    except AppException as e:
+        logger.error(f"Google OAuth callback failed (AppException): {str(e)}", exc_info=True)
+        return jsonify({
+            'code': e.error_code.code if hasattr(e, 'error_code') else 1003,
+            'message': e.message if hasattr(e, 'message') else 'Đăng nhập Google thất bại',
+            'data': None
+        }), 401
+    except Exception as e:
+        logger.error(f"Google OAuth callback failed (Exception): {str(e)}", exc_info=True)
+        return jsonify({
+            'code': 1003,
+            'message': f'Đăng nhập Google thất bại: {str(e)}',
+            'data': None
+        }), 401
