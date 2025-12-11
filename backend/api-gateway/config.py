@@ -18,6 +18,7 @@ class Config:
     MEDIA_SERVICE_URL = 'http://localhost:8090'
     RECIPE_SERVICE_URL = 'http://localhost:8082'
     CATEGORY_SERVICE_URL = 'http://localhost:8083'
+    AI_SERVICE_URL = 'http://localhost:8092'
     
     # Public endpoints (regex patterns)
     PUBLIC_ENDPOINTS = [
