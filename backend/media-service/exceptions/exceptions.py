@@ -1,30 +1,28 @@
 from enum import Enum
-
+from http import HTTPStatus
 
 class ErrorCode(Enum):
-    """
-    Enum cho error codes
-    """
-    USER_NOT_EXISTED = (1001, "user not existed", 404)
-    UNAUTHENTICATED = (1002, "unauthenticated - you are not allowed!", 401)
-    UNAUTHORIZED = (1003, "unauthorized - you are not allowed!", 403)
-    UNCATEGORIZED = (1004, "uncategorized exception", 400)
-    USER_EXISTED = (1005, "user existed", 400)
-    UNABLE_ACCOUNT = (1006, "account was unable!", 400)
-    CAN_NOT_CREATE_TOKEN = (1007, "cannot create token", 400)
-    ROLE_NOT_EXISTED = (1008, "role not existed", 404)
-    FILE_NOT_EXISTED = (1009, "file not existed", 404)
+    # Định nghĩa các mã lỗi
+    SUCCESS = (0, "Success", HTTPStatus.OK)
+    UNKNOWN_ERROR = (1000, "Unknown error", HTTPStatus.INTERNAL_SERVER_ERROR)
+    INVALID_REQUEST = (1001, "Invalid request", HTTPStatus.BAD_REQUEST)
+    UNAUTHENTICATED = (1002, "Unauthenticated", HTTPStatus.UNAUTHORIZED)
+    FORBIDDEN = (1003, "Forbidden", HTTPStatus.FORBIDDEN)
+    NOT_FOUND = (1004, "Not found", HTTPStatus.NOT_FOUND)
     
+    # Các lỗi liên quan đến File (Media Service)
+    NO_FILE_UPLOADED = (1011, "No file uploaded", HTTPStatus.BAD_REQUEST)
+    FILE_SAVE_ERROR = (1010, "Cannot save file", HTTPStatus.INTERNAL_SERVER_ERROR)
+    FILE_NOT_FOUND = (1009, "File not existed", HTTPStatus.NOT_FOUND)
+
     def __init__(self, code, message, http_status):
         self.code = code
         self.message = message
         self.http_status = http_status
 
-
-class AppException(Exception):
-    """
-    Custom application exception
-    """
-    def __init__(self, error_code: ErrorCode):
+# Class Exception tùy chỉnh mà Repository đang gọi
+class AppError(Exception):
+    def __init__(self, error_code: ErrorCode, message=None):
         self.error_code = error_code
-        super().__init__(error_code.message)
+        self.message = message or error_code.message
+        super().__init__(self.message)
