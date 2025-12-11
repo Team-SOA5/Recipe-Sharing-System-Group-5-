@@ -14,6 +14,7 @@ import Search from './pages/Search'
 import Favorites from './pages/Favorites'
 import HealthRecords from './pages/HealthRecords'
 import AIRecommendations from './pages/AIRecommendations'
+import GoogleCallback from './pages/GoogleCallback'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/callback" element={<GoogleCallback />} />
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="recipes/:id" element={<RecipeDetail />} />

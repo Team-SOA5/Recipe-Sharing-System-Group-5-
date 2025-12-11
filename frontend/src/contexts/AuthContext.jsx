@@ -47,6 +47,19 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const syncTokenFromStorage = async () => {
+    const storedToken = localStorage.getItem('token')
+    if (storedToken && storedToken !== token) {
+      setToken(storedToken)
+      return fetchUser()
+    }
+    if (!storedToken) {
+      setUser(null)
+      setToken(null)
+    }
+    return { success: !!storedToken }
+  }
+
   const login = async (email, password) => {
     try {
       const response = await authAPI.login(email, password)
@@ -137,6 +150,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    syncTokenFromStorage,
     isAuthenticated: !!token, // Chỉ cần token, không cần user (user có thể chưa có profile)
   }
 
