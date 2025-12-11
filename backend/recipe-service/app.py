@@ -37,6 +37,11 @@ except Exception as e:
 # Đăng ký Blueprint
 app.register_blueprint(recipe_bp, url_prefix='/recipes')
 
+from controllers import recipe_controller
+@app.route('/users/<userId>/recipes', methods=['GET'])
+def user_recipes(userId):
+    return recipe_controller.get_recipes_by_user(userId)
+
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "Recipe Service Running", "port": os.getenv('PORT')}), 200

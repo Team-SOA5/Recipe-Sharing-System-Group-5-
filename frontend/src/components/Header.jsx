@@ -68,6 +68,12 @@ export default function Header() {
                       Hồ sơ
                     </Link>
                     <Link
+                      to="/my-recipes"
+                      className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                    >
+                      Công thức của tôi
+                    </Link>
+                    <Link
                       to="/health"
                       className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
                     >
