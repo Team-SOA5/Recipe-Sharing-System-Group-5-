@@ -1,24 +1,53 @@
 from flask import jsonify
-from exceptions.exceptions import AppError, ErrorCode  # <-- Sửa thành AppError
+from exceptions.exceptions import AppException, ErrorCode
+from werkzeug.exceptions import HTTPException
+
 
 def register_error_handlers(app):
-    @app.errorhandler(AppError)  # <-- Sửa thành AppError
-    def handle_app_error(e):
-        return jsonify({
-            "code": e.error_code.code,
-            "message": e.message
-        }), e.error_code.http_status.value
-
-    @app.errorhandler(404)
-    def not_found(e):
-        return jsonify({
-            "code": ErrorCode.INVALID_REQUEST.code,
-            "message": "Endpoint not found"
-        }), 404
-
-    @app.errorhandler(500)
-    def internal_error(e):
-        return jsonify({
-            "code": ErrorCode.UNKNOWN_ERROR.code,
-            "message": str(e)
-        }), 500
+    """
+    Đăng ký các error handlers cho Flask app
+    """
+    
+    @app.errorhandler(AppException)
+    def handle_app_exception(error):
+        """
+        Handler cho AppException
+        """
+        error_code = error.error_code
+        response = {
+            'code': error_code.code,
+            'message': error_code.message
+        }
+        return jsonify(response), error_code.http_status
+    
+    @app.errorhandler(Exception)
+    def handle_runtime_exception(error):
+        """
+        Handler cho RuntimeException và các exception chưa được xử lý
+        """
+        # Nếu là HTTP exception từ Flask, giữ nguyên status code
+        if isinstance(error, HTTPException):
+            return jsonify({
+                'code': error.code,
+                'message': error.description
+            }), error.code
+        
+        # Các exception khác trả về UNCATEGORIZED
+        error_code = ErrorCode.UNCATEGORIZED
+        response = {
+            'code': error_code.code,
+            'message': error_code.message
+        }
+        return jsonify(response), error_code.http_status
+    
+    @app.errorhandler(PermissionError)
+    def handle_access_denied_exception(error):
+        """
+        Handler cho PermissionError
+        """
+        error_code = ErrorCode.UNAUTHORIZED
+        response = {
+            'code': error_code.code,
+            'message': error_code.message
+        }
+        return jsonify(response), error_code.http_status

@@ -6,7 +6,7 @@ import datetime
 class RecommendationModel:
     def __init__(self):
         self.client = MongoClient(os.getenv('MONGO_URI'))
-        self.db = self.client.get_database()
+        self.db = self.client['cookpad_ai_db']
         self.collection = self.db.recommendations
 
     def _serialize(self, doc):
