@@ -251,10 +251,44 @@ def get_trending():
     except Exception as e:
         return _handle_error(e)
 
-# --- 9. Lấy công thức của User (GET /recipes/user/{userId}) ---
+# --- 9. Lấy công thức của User (GET /users/{userId}/recipes) ---
 def get_recipes_by_user(userId):
     try:
-        recipes = Recipe.objects(author_id=userId)
-        return jsonify({"data": [r.to_json_summary() for r in recipes]}), 200
+        # Get query parameters
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 10))
+        sort = request.args.get('sort', 'newest')
+        
+        # Query recipes by author_id
+        query = Recipe.objects(author_id=userId)
+        
+        # Sort
+        if sort == 'newest':
+            query = query.order_by('-createdAt')
+        elif sort == 'oldest':
+            query = query.order_by('createdAt')
+        elif sort == 'most_viewed':
+            query = query.order_by('-viewsCount')
+        elif sort == 'most_liked':
+            query = query.order_by('-favoritesCount')
+        
+        # Pagination
+        total_items = query.count()
+        total_pages = (total_items + limit - 1) // limit
+        skip = (page - 1) * limit
+        if skip < 0:
+            skip = 0
+        
+        recipes = query.skip(skip).limit(limit)
+        
+        return jsonify({
+            "data": [r.to_json_summary() for r in recipes],
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "totalItems": total_items,
+                "totalPages": total_pages
+            }
+        }), 200
     except Exception as e:
         return _handle_error(e)

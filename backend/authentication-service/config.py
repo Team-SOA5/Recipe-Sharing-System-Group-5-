@@ -28,6 +28,21 @@ class Config:
         'http://localhost:8081/users'
     )
     
+    # Google OAuth configuration
+    GOOGLE_CLIENT_ID = os.getenv(
+        'GOOGLE_CLIENT_ID',
+        '<key>'
+    )
+    GOOGLE_CLIENT_SECRET = os.getenv(
+        'GOOGLE_CLIENT_SECRET',
+        '<key>'
+    )
+    GOOGLE_REDIRECT_URI = os.getenv(
+        'GOOGLE_REDIRECT_URI',
+        'http://localhost:3000/callback'
+    )
+    GOOGLE_DISCOVERY_URL = 'https://accounts.google.com/.well-known/openid-configuration'
+    
     # Application settings
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     JSON_AS_ASCII = False  # Support Vietnamese characters

@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_cors import CORS
 from config import Config
 from extensions import init_neo4j, close_neo4j
 from routes.profile_routes import profile_bp
@@ -18,6 +19,15 @@ def create_app(config_class=Config):
     """Create and configure Flask application"""
     app = Flask(__name__)
     app.config.from_object(config_class)
+    
+    # Enable CORS for frontend
+    CORS(app, resources={
+        r"/*": {
+            "origins": ["http://localhost:3000", "http://127.0.0.1:3000"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
+    })
     
     # Initialize Neo4j driver
     init_neo4j(

@@ -168,6 +168,12 @@ def authentication_service(subpath):
 
 
 # User service routes
+@app.route(f'{API_PREFIX}/users/<userId>/recipes', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+@authentication_filter
+def user_recipes_service(userId):
+    """Route /users/{userId}/recipes to recipe service"""
+    return proxy_request(SERVICES['recipe-service'], request.path, strip_prefix_count=2)
+
 @app.route(f'{API_PREFIX}/users/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 @authentication_filter
 def user_service(subpath):
