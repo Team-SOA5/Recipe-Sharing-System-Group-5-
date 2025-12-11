@@ -14,6 +14,7 @@ import Search from './pages/Search'
 import Favorites from './pages/Favorites'
 import HealthRecords from './pages/HealthRecords'
 import AIRecommendations from './pages/AIRecommendations'
+import MyRecipes from './pages/MyRecipes'
 import GoogleCallback from './pages/GoogleCallback'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -51,6 +52,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="my-recipes"
+              element={
+                <ProtectedRoute>
+                  <MyRecipes />
                 </ProtectedRoute>
               }
             />

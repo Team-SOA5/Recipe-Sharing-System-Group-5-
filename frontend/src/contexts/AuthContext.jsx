@@ -150,7 +150,8 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    syncTokenFromStorage,
+    fetchUser, // Export để component có thể refresh user
+    syncTokenFromStorage, // Export để sync token từ storage
     isAuthenticated: !!token, // Chỉ cần token, không cần user (user có thể chưa có profile)
   }
 

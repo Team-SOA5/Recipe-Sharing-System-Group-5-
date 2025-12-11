@@ -55,10 +55,6 @@ export default function Home() {
         <p className="text-xl mb-6">
           Khám phá hàng ngàn công thức nấu ăn từ cộng đồng
         </p>
-        <div className="flex items-center space-x-2">
-          <FiTrendingUp />
-          <span>Hơn 10,000 công thức đang chờ bạn khám phá</span>
-        </div>
       </div>
 
       {/* Categories */}

@@ -48,14 +48,14 @@ def update_profile():
 @profile_bp.route('/me/avatar', methods=['PUT'])
 @jwt_required
 def update_avatar():
-    """
-    Update current user's avatar
-    """
-    # Check if file is in request
-    if 'file' not in request.files:
-        return jsonify({'code': 1004, 'message': 'No file provided'}), 400
+    file = None
+    if 'avatar' in request.files:
+        file = request.files['avatar']
+    elif 'file' in request.files:
+        file = request.files['file']
     
-    file = request.files['file']
+    if not file:
+        return jsonify({'code': 1004, 'message': 'No file provided. Use field name "avatar" or "file"'}), 400
     
     # Check if file is empty
     if file.filename == '':

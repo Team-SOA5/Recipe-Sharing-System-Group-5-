@@ -24,30 +24,59 @@ export default function RecipeDetail() {
   const loadRecipe = async () => {
     try {
       setLoading(true)
-      const [recipeData, commentsData, ratingsData] = await Promise.all([
-        recipeAPI.getRecipe(id),
-        commentAPI.getComments(id),
-        ratingAPI.getRatings(id),
-      ])
+      console.log('Loading recipe:', id)
+      
+      // Load recipe first (required)
+      const recipeData = await recipeAPI.getRecipe(id)
+      console.log('Recipe data:', recipeData)
       setRecipe(recipeData)
-      setComments(commentsData.data || [])
-      setRatings(ratingsData)
+      
+      // Load comments and ratings separately with error handling
+      // So if one fails, the other can still work
+      try {
+        const commentsData = await commentAPI.getComments(id)
+        console.log('Comments data:', commentsData)
+        setComments(Array.isArray(commentsData) ? commentsData : (commentsData?.data || []))
+      } catch (commentError) {
+        console.warn('Failed to load comments:', commentError)
+        setComments([]) // Set empty array on error
+        // Don't show error toast for comments, as they might not be implemented yet
+      }
+      
+      try {
+        const ratingsData = await ratingAPI.getRatings(id)
+        console.log('Ratings data:', ratingsData)
+        setRatings(ratingsData || { averageRating: 0, totalRatings: 0 })
+      } catch (ratingError) {
+        console.warn('Failed to load ratings:', ratingError)
+        setRatings({ averageRating: 0, totalRatings: 0 }) // Set default on error
+        // Don't show error toast for ratings, as they might not be implemented yet
+      }
       
       if (isAuthenticated) {
         try {
           const myRatingData = await ratingAPI.getMyRating(id)
+          console.log('My rating:', myRatingData)
           setMyRating(myRatingData)
-          setRatingValue(myRatingData.rating)
+          if (myRatingData && myRatingData.rating) {
+            setRatingValue(myRatingData.rating)
+          }
         } catch (error) {
-          // Chưa có rating
+          console.log('No rating yet or error:', error)
+          // Chưa có rating hoặc lỗi (có thể 404) - this is OK
         }
       }
       
       // Increment view
       recipeAPI.incrementView(id).catch(console.error)
     } catch (error) {
+      console.error('Error loading recipe:', error)
+      console.error('Error details:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      })
       toast.error('Không thể tải công thức')
-      console.error(error)
     } finally {
       setLoading(false)
     }
@@ -63,11 +92,16 @@ export default function RecipeDetail() {
 
     try {
       const comment = await commentAPI.createComment(id, { content: newComment })
-      setComments([comment, ...comments])
+      console.log('Created comment:', comment)
+      // Reload comments instead of manually adding to ensure consistency
+      const commentsData = await commentAPI.getComments(id)
+      setComments(Array.isArray(commentsData) ? commentsData : (commentsData?.data || []))
       setNewComment('')
       toast.success('Đã thêm bình luận')
     } catch (error) {
-      toast.error('Không thể thêm bình luận')
+      console.error('Error creating comment:', error)
+      const errorMessage = error.response?.data?.message || 'Không thể thêm bình luận'
+      toast.error(errorMessage)
     }
   }
 
