@@ -11,22 +11,36 @@ CORS(app)
 
 # Kết nối MongoDB
 try:
-    # Sử dụng connect với các tham số riêng biệt để đảm bảo authentication
     mongo_uri = os.getenv('MONGO_URI')
-    connect(
-        host='localhost',
-        port=27017,
-        db='recipe-service',
-        username='root',
-        password='root',
-        authentication_source='admin'
-    )
+    if mongo_uri:
+        connect(host=mongo_uri)
+    else:
+        try:
+            connect(
+                host='localhost',
+                port=27017,
+                db='recipe-service'
+            )
+        except:
+            connect(
+                host='localhost',
+                port=27017,
+                db='recipe-service',
+                username=os.getenv('MONGO_USERNAME', 'root'),
+                password=os.getenv('MONGO_PASSWORD', 'root'),
+                authentication_source=os.getenv('MONGO_AUTH_SOURCE', 'admin')
+            )
     print("✅ MongoDB Connected (Recipe DB)")
 except Exception as e:
     print(f"❌ MongoDB Connection Failed: {e}")
 
 # Đăng ký Blueprint
 app.register_blueprint(recipe_bp, url_prefix='/recipes')
+
+from controllers import recipe_controller
+@app.route('/users/<userId>/recipes', methods=['GET'])
+def user_recipes(userId):
+    return recipe_controller.get_recipes_by_user(userId)
 
 @app.route('/health', methods=['GET'])
 def health_check():
