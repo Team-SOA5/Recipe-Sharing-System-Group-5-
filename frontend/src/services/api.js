@@ -169,6 +169,53 @@ export const authAPI = {
       throw error
     }
   },
+  
+  getCurrentUser: async () => {
+    if (USE_MOCK) {
+      return mockAPI.getCurrentUser()
+    }
+    try {
+      // Interceptor đã tự động extract response.data rồi
+      console.log('Calling /users/me endpoint...')
+      const data = await api.get('/users/me')
+      console.log('Received user data:', data)
+      return data
+    } catch (error) {
+      console.error('Error in getCurrentUser:', error)
+      console.error('Error response:', error.response)
+      throw error
+    }
+  },
+  
+  updateProfile: async (data) => {
+    if (USE_MOCK) {
+      return { message: 'Profile updated' }
+    }
+    try {
+      // Interceptor đã tự động extract response.data rồi
+      const result = await api.put('/users/me', data)
+      return result
+    } catch (error) {
+      throw error
+    }
+  },
+  
+  updateAvatar: async (file) => {
+    if (USE_MOCK) {
+      return { avatar: 'https://i.pravatar.cc/150?img=1' }
+    }
+    try {
+      const formData = new FormData()
+      formData.append('avatar', file)
+      // Interceptor đã tự động extract response.data rồi
+      const result = await api.put('/users/me/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return result
+    } catch (error) {
+      throw error
+    }
+  },
 }
 
 // ==================== USER API ====================

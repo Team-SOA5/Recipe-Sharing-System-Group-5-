@@ -137,6 +137,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    fetchUser, // Export để component có thể refresh user
     isAuthenticated: !!token, // Chỉ cần token, không cần user (user có thể chưa có profile)
   }
 
