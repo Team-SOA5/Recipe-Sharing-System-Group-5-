@@ -1,22 +1,31 @@
 from flask import Flask, send_from_directory
 from flask_cors import CORS
 from config import app_config
-from routes.file_routes import file_bp
+# from routes.file_routes import file_bp  <-- XÓA DÒNG NÀY Ở ĐÂY (Import quá sớm!)
 from exceptions.error_handler import register_error_handlers
+from extensions import mongo # <-- Import biến mongo từ extensions
 import os
 
 def create_app():
     app = Flask(__name__)
     CORS(app)
     
-    # Register Error Handlers
+    # 1. Cấu hình App từ config object
+    # Flask PyMongo cần đọc MONGO_URI từ app.config
+    app.config["MONGO_URI"] = app_config.mongo_uri 
+    
+    # 2. Khởi tạo Database (BẮT BUỘC PHẢI CÓ)
+    # Nếu không có dòng này, mongo.db sẽ luôn là None -> Lỗi TypeError
+    mongo.init_app(app)
+    
+    # 3. Register Error Handlers
     register_error_handlers(app)
     
-    # Register Blueprint với context path
-    # app_config.context_path thường là '/media'
-    app.register_blueprint(file_bp, url_prefix=app_config.context_path)
+    # 4. Import và Register Blueprint (Làm ở đây mới an toàn)
+    # Import inside function để đảm bảo DB đã init xong mới load routes
+    from routes.file_routes import file_bp 
     
-    # --- ĐÃ XÓA DÒNG mongo.init_app(app) VÌ KHÔNG CẦN THIẾT ---
+    app.register_blueprint(file_bp, url_prefix=app_config.context_path)
     
     return app
 

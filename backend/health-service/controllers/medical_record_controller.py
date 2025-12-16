@@ -7,30 +7,42 @@ from models.medical_record_model import MedicalRecordModel
 from exceptions.exceptions import ValidationError, NotFoundError, AppError, ErrorCode
 
 record_model = MedicalRecordModel()
-ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'heic'}
+ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'heic', 'txt'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# --- HELPER: GỌI SERVICE KHÁC ---
 def upload_to_media_service(file, token):
     """Upload file sang Media Service"""
     media_url = os.getenv('MEDIA_SERVICE_URL')
     try:
-        # Reset file pointer
+        # 1. Reset file pointer
         file.stream.seek(0)
-        files = {'file': (file.filename, file.stream, file.content_type)}
+        
+        # 2. Định nghĩa biến chứa file (Đặt tên là files_payload cho rõ)
+        # Key 'file' là bắt buộc để khớp với Media Service
+        files_payload = {'file': (file.filename, file.stream, file.content_type)}
+        
         headers = {'Authorization': token}
         
-        # Gọi API Upload của Media Service
-        resp = requests.post(f"{media_url}/upload", files=files, headers=headers, timeout=10)
+        print(f"📡 Uploading to Media Service: {media_url}/upload")
+        
+        # 3. Gọi API (Chú ý: files=files_payload)
+        # Lỗi cũ của bạn là do viết files=files nhưng biến 'files' không tồn tại
+        resp = requests.post(f"{media_url}/upload", files=files_payload, headers=headers, timeout=10)
+        
         if resp.status_code == 200:
-            return resp.json().get('url')
+            url = resp.json().get('url')
+            print(f"✅ Media Upload Success: {url}")
+            return url
         else:
+            print(f"❌ Media Service Error {resp.status_code}: {resp.text}")
             raise AppError(ErrorCode.UNKNOWN_ERROR, f"Media Upload Failed: {resp.text}")
+            
     except Exception as e:
-        print(f"Media Service Error: {e}")
-        raise AppError(ErrorCode.UNKNOWN_ERROR, "Cannot connect to Media Service")
+        # In lỗi chi tiết ra để debug
+        print(f"❌ Connection Error: {e}")
+        raise AppError(ErrorCode.UNKNOWN_ERROR, f"Cannot connect to Media Service: {e}")
 
 def trigger_ai_analysis(record_id, token):
     """Gửi tín hiệu sang AI Service để bắt đầu phân tích"""

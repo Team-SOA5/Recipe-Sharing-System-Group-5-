@@ -1,52 +1,60 @@
 import jwt
-from functools import wraps
-from flask import request, g, jsonify
-import logging
 import os
-from exceptions.exceptions import ErrorCode
-
-logger = logging.getLogger(__name__)
-
-# User ID giả lập
-MOCK_USER_ID = "dev_user_id_123" 
-
-def decode_jwt(token):
-    try:
-        if token.startswith('Bearer '):
-            token = token[7:]
-        decoded = jwt.decode(token, options={"verify_signature": False})
-        return decoded
-    except Exception as e:
-        logger.error(f"Error decoding token: {str(e)}")
-        raise Exception("Invalid token")
+from functools import wraps
+from flask import request, g
+from config import app_config
+from exceptions.exceptions import AppError, ErrorCode
 
 def jwt_required(f):
+    """
+    Decorator để kiểm tra JWT token.
+    Có tính năng SKIP_AUTH để test nhanh mà không cần token.
+    """
     @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # --- SỬA Ở ĐÂY: Đọc biến môi trường ngay lúc có request ---
-        # Điều này đảm bảo file .env đã được load xong
-        skip_auth = os.getenv('SKIP_AUTH', 'False').lower() == 'true'
+    def decorated(*args, **kwargs):
+        # --- [NEW] LOGIC BỎ QUA AUTH ---
+        # Kiểm tra biến môi trường SKIP_AUTH (mặc định là false)
+        skip_auth = os.getenv('SKIP_AUTH', 'false').lower() == 'true'
         
-        # In ra log để debug xem hệ thống đang hiểu thế nào
-        print(f"DEBUG AUTH: SKIP_AUTH={skip_auth}, Header={request.headers.get('Authorization')}")
-
         if skip_auth:
-            g.user_id = MOCK_USER_ID
+            # Gán thông tin giả lập để code phía sau không bị crash
+            g.user_id = "dev_user_123"
+            g.user_role = "ADMIN"
+            # Cho qua luôn, không check token nữa
             return f(*args, **kwargs)
-        # ---------------------------------------------------------
+        
+        # --- LOGIC CHÍNH (NHƯ CŨ) ---
+        token = None
+        
+        # 1. Lấy token từ Header
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            if auth_header.startswith("Bearer "):
+                token = auth_header.split(" ")[1]
+        
+        # 2. Kiểm tra nếu không có token
+        if not token:
+            raise AppError(ErrorCode.UNAUTHORIZED, "Authentication token is missing")
 
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            e = ErrorCode.UNAUTHENTICATED
-            return jsonify({'code': e.code, 'message': e.message}), e.http_status.value
-        
         try:
-            decoded = decode_jwt(auth_header)
-            g.user_id = decoded.get('sub')
-        except Exception:
-            e = ErrorCode.UNAUTHENTICATED
-            return jsonify({'code': e.code, 'message': e.message}), e.http_status.value
-        
+            # 3. Decode token
+            payload = jwt.decode(
+                token, 
+                app_config.config.get('SECRET_KEY', 'my_precious_secret_key'), 
+                algorithms=["HS256"]
+            )
+            
+            # 4. Lưu thông tin user vào biến global g
+            g.user_id = payload.get('sub') or payload.get('id')
+            g.user_role = payload.get('role')
+            
+        except jwt.ExpiredSignatureError:
+            raise AppError(ErrorCode.UNAUTHORIZED, "Token has expired")
+        except jwt.InvalidTokenError:
+            raise AppError(ErrorCode.UNAUTHORIZED, "Invalid token")
+        except Exception as e:
+            raise AppError(ErrorCode.UNAUTHORIZED, f"Token error: {str(e)}")
+
         return f(*args, **kwargs)
-    
-    return decorated_function
+
+    return decorated

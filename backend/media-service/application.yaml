@@ -8,8 +8,8 @@ spring:
     name: media-service
   data:
     mongodb:
-      uri: mongodb://root:root@localhost:27017/file-service?authSource=admin
-
+      uri: mongodb://localhost:27017/media_db
+      
 app:
   file:
     storage-dir: "media-service/file-storage"

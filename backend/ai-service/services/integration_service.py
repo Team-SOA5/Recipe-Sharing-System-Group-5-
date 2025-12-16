@@ -42,7 +42,7 @@ class IntegrationService:
         except Exception as e:
             print(f"❌ Callback Error: {e}")
 
-    def search_recipes(self):
+    def search_recipes(self, keywords=None):
         try:
             # self.recipe_url ví dụ: http://localhost:8080/api/v1/recipes
             url = self.recipe_url 
