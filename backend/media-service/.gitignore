@@ -24,9 +24,6 @@ instance/
 .env
 .env.local
 
-# File storage
-file-storage/
-*.log
 
 # OS
 .DS_Store
