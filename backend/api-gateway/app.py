@@ -33,7 +33,9 @@ SERVICES = {
     "user-service": "http://localhost:8081",
     "media-service": "http://localhost:8090",
     "recipe-service": "http://localhost:8082",
-    "category-service": "http://localhost:8083"
+    "category-service": "http://localhost:8083",
+    "health-service": "http://localhost:8084",
+    "ai-service": "http://localhost:8092"
 }
 
 # Public endpoints (no authentication required)
@@ -205,6 +207,24 @@ def recipe_service_handler(subpath=''):
 def category_service_handler(subpath=''):
     """Route requests to category service"""
     return proxy_request(SERVICES['category-service'], request.path, strip_prefix_count=2)
+
+
+# Health service routes
+@app.route(f'{API_PREFIX}/health', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], strict_slashes=False)
+@app.route(f'{API_PREFIX}/health/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+@authentication_filter
+def health_service_handler(subpath=''):
+    """Route requests to health service"""
+    return proxy_request(SERVICES['health-service'], request.path, strip_prefix_count=2)
+
+
+# AI service routes
+@app.route(f'{API_PREFIX}/ai', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], strict_slashes=False)
+@app.route(f'{API_PREFIX}/ai/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+@authentication_filter
+def ai_service_handler(subpath=''):
+    """Route requests to AI service"""
+    return proxy_request(SERVICES['ai-service'], request.path, strip_prefix_count=2)
 
 
 # Health check endpoint

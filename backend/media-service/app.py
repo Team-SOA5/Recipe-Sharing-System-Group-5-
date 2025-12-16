@@ -7,8 +7,17 @@ from extensions import mongo # <-- Import biến mongo từ extensions
 import os
 
 def create_app():
+    """
+    Application factory pattern
+    Tạo và cấu hình Flask application
+    """
     app = Flask(__name__)
-    CORS(app)
+    
+    # Load configuration
+    app.config.from_object(Config)
+    
+    # Initialize MongoDB
+    mongo.init_app(app)
     
     # 1. Cấu hình App từ config object
     # Flask PyMongo cần đọc MONGO_URI từ app.config
@@ -29,12 +38,19 @@ def create_app():
     
     return app
 
+
 if __name__ == '__main__':
     app = create_app()
-    port = app_config.port
-    print(f"Media Service running at http://localhost:{port}{app_config.context_path}")
-    print(f"Storage Directory: {app_config.storage_dir}")
     
-    # Debug mode
-    debug = os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
-    app.run(host='0.0.0.0', port=port, debug=debug)
+    # Run application
+    # Server port và context path được config trong Config class
+    port = Config.SERVER_PORT
+    
+    print(f"Starting {Config.APP_NAME} on port {port}")
+    print(f"Context path: {Config.CONTEXT_PATH}")
+    
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=Config.DEBUG
+    )

@@ -1,78 +1,95 @@
-from flask import Blueprint, request, send_file, jsonify, g
-import io
-
-# Import các thành phần trong dự án
+from flask import Blueprint, request, send_file, jsonify
 from services.file_service import FileService
 from repositories.file_management_repository import FileManagementRepository
 from repositories.file_repository import FileRepository
-from utils.jwt_service import jwt_required  # Dùng jwt_required thay vì token_required
-from config import app_config
+from utils.jwt_service import token_required
+from config import Config
+import io
 
-# Khởi tạo Blueprint
-# Lưu ý: Không cần url_prefix="/media" ở đây nếu trong app.py đã register với prefix đó rồi
-file_bp = Blueprint('file', __name__)
 
-# Khởi tạo Repositories & Service
-# (Repository tự lấy config từ app_config bên trong nó, không cần truyền tham số)
+# Khởi tạo Blueprint cho file routes
+file_bp = Blueprint('file', __name__, url_prefix="/media")
+
+
+# Khởi tạo repositories và service
 file_management_repository = FileManagementRepository()
-file_repository = FileRepository()
+file_repository = FileRepository(
+    storage_dir=Config.FILE_STORAGE_DIR,
+    url_prefix=Config.FILE_DOWNLOAD_PREFIX
+)
+file_service = FileService(file_management_repository, file_repository)
 
-file_service = FileService() 
-# Lưu ý: FileService tôi viết trước đó tự khởi tạo repo bên trong __init__
-# Nếu bạn muốn Dependency Injection như code của bạn, 
-# bạn cần sửa lại FileService __init__ để nhận tham số. 
-# Nhưng để chạy ngay với code cũ, ta dùng: file_service = FileService()
 
 @file_bp.route('/download/<file_name>', methods=['GET'])
-@jwt_required
+@token_required
 def download(file_name):
     """
-    URL: GET /media/download/{fileName}
-    """
-    # Gọi đúng tên hàm trong Service: get_file_for_download
-    file_path, original_name = file_service.get_file_for_download(file_name)
+    Endpoint để download file
     
-    # Trả về file trực tiếp từ ổ cứng
+    
+    URL: GET /download/{fileName}
+    """
+    file_data = file_service.download(file_name)
+    
+    # Tạo BytesIO object từ file content
     return send_file(
-        file_path,
-        download_name=original_name,
-        as_attachment=True
+        io.BytesIO(file_data.resource),
+        mimetype=file_data.content_type,
+        as_attachment=False
     )
 
+
 @file_bp.route('/upload', methods=['POST'])
-@jwt_required
+@token_required
 def upload():
     """
-    URL: POST /media/upload
+    Endpoint để upload single file
+    
+    
+    URL: POST /upload
+    Form data: file (MultipartFile)
     """
     if 'file' not in request.files:
-        return jsonify({'code': 400, 'message': 'No file part'}), 400
+        return jsonify({
+            'code': 400,
+            'message': 'No file part in the request'
+        }), 400
     
     file = request.files['file']
     
     if file.filename == '':
-        return jsonify({'code': 400, 'message': 'No file selected'}), 400
+        return jsonify({
+            'code': 400,
+            'message': 'No file selected'
+        }), 400
     
-    # Gọi đúng hàm upload_file và truyền user_id lấy từ token (g.user_id)
-    response = file_service.upload_file(file, g.user_id)
-    
-    return jsonify(response), 200
+    file_response = file_service.upload(file)
+    return jsonify(file_response.to_dict()), 200
+
 
 @file_bp.route('/batch-upload', methods=['POST'])
-@jwt_required
+@token_required
 def batch_upload():
     """
-    URL: POST /media/batch-upload
+    Endpoint để upload multiple files
+    
+    
+    URL: POST /batch-upload
+    Form data: files (List<MultipartFile>)
     """
     if 'files' not in request.files:
-        return jsonify({'code': 400, 'message': 'No files part'}), 400
+        return jsonify({
+            'code': 400,
+            'message': 'No files part in the request'
+        }), 400
     
     files = request.files.getlist('files')
     
-    if not files or len(files) == 0:
-        return jsonify({'code': 400, 'message': 'No files selected'}), 400
+    if not files or all(f.filename == '' for f in files):
+        return jsonify({
+            'code': 400,
+            'message': 'No files selected'
+        }), 400
     
-    # Gọi đúng hàm batch_upload và truyền user_id
-    response = file_service.batch_upload(files, g.user_id)
-    
-    return jsonify(response), 200
+    batch_response = file_service.batch_upload(files)
+    return jsonify(batch_response.to_dict()), 200
