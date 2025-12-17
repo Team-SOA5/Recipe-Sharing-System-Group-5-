@@ -14,7 +14,7 @@ bp = Blueprint('comment', __name__)
 #     return 'Simply a landing page!'
 
 
-@bp.route('/api/v1/recipes/<recipe_id>', methods=['GET'])
+@bp.route('/api/v1/recipes/<recipe_id>/comments', methods=['GET'])
 def get_comments_of_recipe(recipe_id: str):
     queries = request.args
     page = int(queries.get('page', 1))
@@ -24,7 +24,7 @@ def get_comments_of_recipe(recipe_id: str):
     return jsonify([c.to_dict() for c in comments]), 200
 
 
-@bp.route('/api/v1/recipes/<recipe_id>', methods=['POST'])
+@bp.route('/api/v1/recipes/<recipe_id>/comments', methods=['POST'])
 def post_comment_of_recipe(recipe_id: str):
     queries = request.args
     body = request.get_json()
