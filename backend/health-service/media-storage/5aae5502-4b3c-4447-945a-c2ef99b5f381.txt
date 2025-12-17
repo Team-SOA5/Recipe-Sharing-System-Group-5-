@@ -1,0 +1,14 @@
+BỆNH VIỆN ĐA KHOA TEST
+        PHIẾU KẾT QUẢ XÉT NGHIỆM
+        
+        Họ tên: Nguyễn Văn A
+        Tuổi: 45
+        Chẩn đoán: Theo dõi tiểu đường type 2
+        
+        KẾT QUẢ:
+        1. Glucose (Đường huyết lúc đói): 150 mg/dL (Cao) -> Bình thường < 100
+        2. HbA1c: 7.5% (Cao)
+        3. Cholesterol toàn phần: 220 mg/dL
+        4. Huyết áp: 140/90 mmHg
+        
+        Lời dặn: Hạn chế tinh bột, đồ ngọt. Tập thể dục đều đặn.

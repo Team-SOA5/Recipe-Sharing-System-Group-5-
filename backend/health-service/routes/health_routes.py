@@ -35,3 +35,12 @@ def internal_update_route(record_id):
 @jwt_required
 def reprocess_route(record_id):
     return reprocess_medical_record(record_id)
+
+# --- INTERNAL CALLBACK (AI SERVICE GỌI VỀ) ---
+# Quan trọng: 
+# 1. Method phải là PATCH (để khớp với IntegrationService)
+# 2. URL phải có /health/ ở đầu (để khớp với quy tắc đặt tên của bạn)
+@health_bp.route('/health/medical-records/<record_id>/ai-callback', methods=['PATCH'])
+def ai_callback_route(record_id):
+    # API này không cần jwt_required nếu bạn dùng SKIP_AUTH hoặc token nội bộ
+    return update_record_from_ai(record_id)
