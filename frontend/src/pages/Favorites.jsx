@@ -1,23 +1,52 @@
 import { useState, useEffect } from 'react'
-import { favoriteAPI } from '../services/api'
+import { favoriteAPI, recipeAPI } from '../services/api'
+import { useAuth } from '../contexts/AuthContext'
 import RecipeCard from '../components/RecipeCard'
 import toast from 'react-hot-toast'
 
 export default function Favorites() {
   const [recipes, setRecipes] = useState([])
   const [loading, setLoading] = useState(true)
+  const { user, isAuthenticated } = useAuth()
 
   useEffect(() => {
-    loadFavorites()
-  }, [])
+    if (isAuthenticated) {
+      loadFavorites()
+    } else {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
 
   const loadFavorites = async () => {
     try {
       setLoading(true)
-      // Tạm thời dùng mock data
-      const { mockRecipes } = await import('../services/mockData')
-      const favorited = mockRecipes.filter(r => r.isFavorited)
-      setRecipes(favorited)
+      if (!user) {
+        setRecipes([])
+        return
+      }
+
+      const params = { page: 1, limit: 20, userId: user.id || user.userId || user._id }
+      const data = await favoriteAPI.getFavorites(params)
+      const favorites = Array.isArray(data) ? data : data?.data || []
+
+      if (favorites.length === 0) {
+        setRecipes([])
+        return
+      }
+
+      // Lấy chi tiết recipe đầy đủ từ recipe-service để dùng cho RecipeCard
+      const ids = favorites.map((f) => f.id)
+      const results = await Promise.allSettled(ids.map((id) => recipeAPI.getRecipe(id)))
+
+      const detailedRecipes = results
+        .filter((r) => r.status === 'fulfilled' && r.value)
+        .map((r) => ({
+          // r.value đã là response.data do interceptor, là object recipe đầy đủ
+          ...r.value,
+          isFavorited: true,
+        }))
+
+      setRecipes(detailedRecipes)
     } catch (error) {
       toast.error('Không thể tải danh sách yêu thích')
       console.error(error)
@@ -29,6 +58,12 @@ export default function Favorites() {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Công thức yêu thích</h1>
+
+      {!isAuthenticated && (
+        <div className="text-center py-12 text-gray-500">
+          Vui lòng đăng nhập để xem danh sách yêu thích.
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12">

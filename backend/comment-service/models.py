@@ -229,15 +229,18 @@ class Recipe(db.Model):
         self.favorited_user_ids = pickle.dumps(favorited_user_ids)
 
     def unset_as_favorite_of(self, user_id: str):
+        """Bỏ đánh dấu yêu thích của một user nếu có."""
         favorited_user_ids: list[str] = pickle.loads(self.favorited_user_ids)
-        favorited_user_ids.append(user_id)
-        self.favorited_user_ids = pickle.dumps(favorited_user_ids)
+        if user_id in favorited_user_ids:
+            favorited_user_ids.remove(user_id)
+            self.favorited_user_ids = pickle.dumps(favorited_user_ids)
 
     def is_favorited_by(self, user_id: str):
         favorited_user_ids: list[str] = pickle.loads(self.favorited_user_ids)
         return user_id in favorited_user_ids
 
     def to_dict(self):
+        favorited_user_ids: list[str] = pickle.loads(self.favorited_user_ids)
         return {
             "id": self.id,
             "title": self.title,
@@ -250,8 +253,10 @@ class Recipe(db.Model):
             "ratingsCount": self.ratings_count,
             "servings": self.servings,
             "averageRatings": self.average_ratings,
-            "ratingCount": self.rating_count,
-            "favoritedUserIds": pickle.loads(self.favorited_user_ids)
+            # Frontend có thể dùng cả hai key, đều map từ ratings_count
+            "ratingCount": self.ratings_count,
+            "favoritesCount": len(favorited_user_ids),
+            "favoritedUserIds": favorited_user_ids,
         }
 
     def to_dict_for(self, user_id: str):
@@ -269,6 +274,7 @@ class Recipe(db.Model):
             "ratingsCount": self.ratings_count,
             "servings": self.servings,
             "averageRatings": self.average_ratings,
-            "ratingCount": self.rating_count,
+            "ratingCount": self.ratings_count,
+            "favoritesCount": len(favorited_user_ids),
             "isFavorited": user_id in favorited_user_ids
         }

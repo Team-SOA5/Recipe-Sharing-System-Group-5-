@@ -218,6 +218,77 @@ def increment_view(recipeId):
     except Exception as e:
         return _handle_error(e)
 
+
+# --- 6b. Internal: cập nhật favoritesCount (POST /recipes/{id}/favorite-count) ---
+def update_favorite_count(recipeId):
+    """
+    Internal endpoint cho comment-service gọi để đồng bộ favoritesCount.
+    Body: { "delta": 1 } hoặc { "delta": -1 }
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        delta = int(data.get('delta', 0))
+        if delta == 0:
+            return jsonify({"message": "delta must be non-zero"}), 400
+
+        recipe = Recipe.objects(id=recipeId).first()
+        if not recipe:
+            return jsonify({"code": 404, "message": "Not Found"}), 404
+
+        new_value = max(0, recipe.favoritesCount + delta)
+        recipe.update(set__favoritesCount=new_value)
+        recipe.reload()
+        return jsonify({"favoritesCount": recipe.favoritesCount}), 200
+    except Exception as e:
+        return _handle_error(e)
+
+
+# --- 6c. Internal: cập nhật thống kê rating (POST /recipes/{id}/rating-stats) ---
+def update_rating_stats(recipeId):
+    """
+    Internal endpoint cho comment-service để đồng bộ averageRating và ratingsCount.
+    Body:
+      - rating: điểm mới (bắt buộc)
+      - oldRating: điểm cũ (nullable). Nếu null -> user rating lần đầu.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        if "rating" not in data:
+            return jsonify({"message": "rating is required"}), 400
+
+        new_rating = float(data["rating"])
+        old_rating = data.get("oldRating")
+        old_rating = float(old_rating) if old_rating is not None else None
+
+        recipe = Recipe.objects(id=recipeId).first()
+        if not recipe:
+            return jsonify({"code": 404, "message": "Not Found"}), 404
+
+        current_avg = recipe.averageRating or 0.0
+        current_count = recipe.ratingsCount or 0
+
+        if old_rating is None:
+            # Rating lần đầu: tăng count
+            new_count = current_count + 1
+            if new_count <= 0:
+                new_count = 1
+            new_avg = (current_avg * current_count + new_rating) / new_count
+        else:
+            # Update rating: giữ nguyên count, thay điểm cũ bằng mới
+            new_count = max(current_count, 1)
+            new_avg = (current_avg * new_count - old_rating + new_rating) / new_count
+
+        recipe.update(set__averageRating=new_avg, set__ratingsCount=new_count)
+        recipe.reload()
+        return jsonify(
+            {
+                "averageRating": recipe.averageRating,
+                "ratingsCount": recipe.ratingsCount,
+            }
+        ), 200
+    except Exception as e:
+        return _handle_error(e)
+
 # --- 7. Feed (GET /feed) ---
 def get_feed():
     try:

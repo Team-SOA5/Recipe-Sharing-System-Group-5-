@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { recipeAPI, commentAPI, ratingAPI, userAPI } from '../services/api'
+import { recipeAPI, commentAPI, ratingAPI, userAPI, favoriteAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { FiClock, FiUsers, FiStar, FiEye, FiHeart, FiMessageCircle, FiShare2 } from 'react-icons/fi'
 import { formatDistanceToNow } from 'date-fns'
@@ -19,6 +19,8 @@ export default function RecipeDetail() {
   const [editingCommentId, setEditingCommentId] = useState(null)
   const [editingContent, setEditingContent] = useState('')
   const [commentToDelete, setCommentToDelete] = useState(null)
+  const [isFavorited, setIsFavorited] = useState(false)
+  const [favoritesCount, setFavoritesCount] = useState(0)
 
   useEffect(() => {
     loadRecipe()
@@ -29,10 +31,37 @@ export default function RecipeDetail() {
       setLoading(true)
       console.log('Loading recipe:', id)
       
-      // Load recipe first (required)
+      // Load recipe trước (từ recipe-service)
       const recipeData = await recipeAPI.getRecipe(id)
       console.log('Recipe data:', recipeData)
       setRecipe(recipeData)
+
+      // Giá trị mặc định từ recipe-service
+      let initialIsFavorited = !!recipeData.isFavorited
+      const baseFavoritesCount = recipeData.favoritesCount || 0
+      let extraFavoritesFromSocial = 0
+
+      // Nếu đã đăng nhập thì override bằng dữ liệu social (comment-service)
+      if (isAuthenticated && user) {
+        try {
+          const params = { page: 1, limit: 100, userId: user.id || user.userId || user._id }
+          const data = await favoriteAPI.getFavorites(params)
+          const favorites = Array.isArray(data) ? data : data?.data || []
+          const socialRecipe = favorites.find((r) => r.id === id)
+
+          if (socialRecipe) {
+            initialIsFavorited = true
+            // Số lượt yêu thích lưu ở social (comment-service) coi như phần bổ sung
+            extraFavoritesFromSocial = socialRecipe.favoritesCount || 0
+          }
+        } catch (e) {
+          console.warn('Failed to sync favorites from social service', e)
+        }
+      }
+
+      setIsFavorited(initialIsFavorited)
+      // Tổng = số từ recipe-service + phần bổ sung từ social
+      setFavoritesCount(baseFavoritesCount + extraFavoritesFromSocial)
 
       // Sidebar thống kê đánh giá: dùng số liệu tổng hợp từ recipe-service
       setRatings({
@@ -143,7 +172,10 @@ export default function RecipeDetail() {
       
       if (isAuthenticated) {
         try {
-          const myRatingData = await ratingAPI.getMyRating(id)
+          const myRatingData = await ratingAPI.getMyRating(
+            id,
+            user?.id || user?.userId || user?._id
+          )
           console.log('My rating:', myRatingData)
           setMyRating(myRatingData)
           if (myRatingData && myRatingData.rating) {
@@ -453,6 +485,39 @@ export default function RecipeDetail() {
     }
   }
 
+  const handleToggleFavorite = async () => {
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để thêm vào yêu thích')
+      return
+    }
+
+    const prevFavorited = isFavorited
+    const prevCount = favoritesCount
+
+    try {
+      const userId = user?.id || user?.userId || user?._id
+
+      if (!prevFavorited) {
+        // Optimistic update
+        setIsFavorited(true)
+        setFavoritesCount((c) => c + 1)
+        await favoriteAPI.addFavorite(id, userId)
+        toast.success('Đã thêm vào yêu thích')
+      } else {
+        setIsFavorited(false)
+        setFavoritesCount((c) => (c > 0 ? c - 1 : 0))
+        await favoriteAPI.removeFavorite(id, userId)
+        toast.success('Đã bỏ yêu thích')
+      }
+    } catch (error) {
+      console.error('Toggle favorite error:', error)
+      // Rollback nếu lỗi
+      setIsFavorited(prevFavorited)
+      setFavoritesCount(prevCount)
+      toast.error('Không thể cập nhật trạng thái yêu thích')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -483,12 +548,30 @@ export default function RecipeDetail() {
         <div className="lg:col-span-2">
           {/* Header */}
           <div className="mb-6">
-            <div className="flex items-center space-x-2 text-sm text-gray-500 mb-2">
-              <Link to={`/users/${recipe.author.id}`} className="hover:text-primary-600">
-                {recipe.author.fullName}
-              </Link>
-              <span>•</span>
-              <span>{formatDistanceToNow(new Date(recipe.createdAt), { addSuffix: true })}</span>
+            <div className="flex items-center justify-between mb-2 text-sm text-gray-500">
+              <div className="flex items-center space-x-2">
+                <Link to={`/users/${recipe.author.id}`} className="hover:text-primary-600">
+                  {recipe.author.fullName}
+                </Link>
+                <span>•</span>
+                <span>{formatDistanceToNow(new Date(recipe.createdAt), { addSuffix: true })}</span>
+              </div>
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={handleToggleFavorite}
+                  className="flex items-center text-sm px-3 py-1 rounded-full border border-gray-200 hover:bg-orange-50 hover:border-orange-400 transition-colors"
+                >
+                  <FiHeart
+                    className={`mr-1 text-lg ${
+                      isFavorited ? 'text-red-500 fill-current' : 'text-gray-400'
+                    }`}
+                  />
+                  <span className="mr-1">
+                    {favoritesCount.toLocaleString()} yêu thích
+                  </span>
+                </button>
+              )}
             </div>
             <h1 className="text-3xl font-bold mb-4">{recipe.title}</h1>
             <p className="text-gray-600 mb-4">{recipe.description}</p>

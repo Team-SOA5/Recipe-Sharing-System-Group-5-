@@ -10,7 +10,21 @@ bp = Blueprint('socials', __name__)
 
 
 def __get_current_user_id() -> str | None:
-    return g.get('user_id')
+    """
+    Lấy user_id hiện tại.
+    - Ưu tiên từ g.user_id (nếu sau này có middleware JWT).
+    - Fallback từ query string: ?userId=...
+    - Hoặc từ body JSON: { "userId": "..." }.
+    """
+    if getattr(g, 'user_id', None):
+        return g.user_id
+
+    user_id = request.args.get('userId') or request.args.get('user_id')
+    if user_id:
+        return user_id
+
+    data = request.get_json(silent=True) or {}
+    return data.get('userId') or data.get('user_id')
 
 
 def __get_current_user() -> User | None:
@@ -111,18 +125,30 @@ def post_ratings_of_recipe(recipe_id: str):
     # FE hiện chỉ gửi rating, nên review là optional
     review: str = body.get('review', '')
     # Lấy authorId từ JWT (nếu có) hoặc từ body
-    author_id: str = g.get('user_id') or body.get('authorId') or body.get('author') or 'anonymous'
+    author_id: str = __get_current_user_id() or body.get('authorId') or body.get('author') or 'anonymous'
     created_at: datetime = datetime.now()
     # id sẽ là random string, recipe_id truyền riêng
     rating_id = make_random_string(16)
     result = Rating(rating_id, recipe_id, rating, review, author_id, created_at, created_at)
     RatingRepository.save(result)
+
+    # Đồng bộ thống kê rating sang recipe-service (tăng count + update average)
+    try:
+        import requests
+
+        recipe_service_url = 'http://localhost:8082'
+        url = f"{recipe_service_url}/recipes/{recipe_id}/rating-stats"
+        # oldRating = None vì đây là rating lần đầu
+        requests.post(url, json={"rating": rating, "oldRating": None}, timeout=5)
+    except Exception as e:
+        print("WARN: failed to sync rating stats to recipe-service (create):", e)
+
     return jsonify(RatingRepository.get_by_author_id_and_recipe_id(author_id, recipe_id).to_dict()), 200
 
 
 @bp.route('/api/recipes/<recipe_id>/ratings/me', methods=['GET'])
 def get_my_ratings_of_recipe(recipe_id: str):
-    user_id = g.get('user_id')
+    user_id = __get_current_user_id()
     result = RatingRepository.get_by_author_id_and_recipe_id(user_id, recipe_id)
     if not result:
         # Chưa có rating nào của user cho recipe này
@@ -137,39 +163,54 @@ def put_my_ratings_of_recipe(recipe_id: str):
     rating: int = body['rating']  # TODO: Constrain down to [1, 5]!
     # review optional
     review: str = body.get('review', '')
-    author_id: str = g.get('user_id') or body.get('authorId') or body.get('author') or 'anonymous'
+    author_id: str = __get_current_user_id() or body.get('authorId') or body.get('author') or 'anonymous'
     updated_at: datetime = datetime.now()
-    result = RatingRepository.get_by_author_id_and_recipe_id(author_id, recipe_id)
+    existing = RatingRepository.get_by_author_id_and_recipe_id(author_id, recipe_id)
+    old_rating_value = existing.rating if existing else None
 
     # Nếu chưa có rating trước đó, tạo mới luôn (giống POST)
-    if not result:
+    if not existing:
         rating_id = make_random_string(16)
         created_at: datetime = datetime.now()
-        result = Rating(rating_id, recipe_id, rating, review, author_id, created_at, updated_at)
+        existing = Rating(rating_id, recipe_id, rating, review, author_id, created_at, updated_at)
     else:
-        result.rating = rating
-        result.review = review
-        result.updated_at = updated_at
+        existing.rating = rating
+        existing.review = review
+        existing.updated_at = updated_at
 
-    RatingRepository.save(result)
-    return jsonify(result.to_dict()), 200
+    RatingRepository.save(existing)
+
+    # Đồng bộ thống kê rating sang recipe-service
+    try:
+        import requests
+
+        recipe_service_url = 'http://localhost:8082'
+        url = f"{recipe_service_url}/recipes/{recipe_id}/rating-stats"
+        requests.post(
+            url,
+            json={"rating": rating, "oldRating": old_rating_value},
+            timeout=5,
+        )
+    except Exception as e:
+        print("WARN: failed to sync rating stats to recipe-service (update):", e)
+
+    return jsonify(existing.to_dict()), 200
 
 
 @bp.route('/api/recipes/<recipe_id>/ratings/me', methods=['DELETE'])
 def delete_my_ratings_of_recipe(recipe_id: str):
-    author_id = g.get('user_id')
+    author_id = __get_current_user_id()
     rating = RatingRepository.get_by_author_id_and_recipe_id(author_id, recipe_id)
     RatingRepository.delete(rating)
     return jsonify(), 200
 
 
 # favorites service
-@bp.route('/api/users/<user_id>/favorites', methods=['DELETE'])
+@bp.route('/api/users/<user_id>/favorites', methods=['GET'])
 def get_favorite_recipes_of_user(user_id: str):
     queries = request.args
-    body = request.get_json()
-    page: int = queries.get('page', 1)
-    limit: int = queries.get('limit', 20)
+    page: int = int(queries.get('page', 1))
+    limit: int = int(queries.get('limit', 20))
     recipes = RecipeRepository.get_liked_recipes_of(user_id, page, limit)
     return jsonify([r.to_dict_for(user_id) for r in recipes]), 200
 
@@ -181,17 +222,73 @@ def get_favorite_recipes_of_me():
 
 @bp.route('/api/recipes/<recipe_id>/favorite', methods=['POST'])
 def favorite_recipe(recipe_id: str):
+    body = request.get_json(silent=True) or {}
+    # Ưu tiên user_id từ JWT (nếu sau này có), fallback theo body
+    user_id = __get_current_user_id() or body.get('userId') or body.get('user_id')
+    if not user_id:
+        return jsonify({'message': 'Missing userId'}), 400
+
     recipe = RecipeRepository.get_by_id(recipe_id)
-    recipe.set_as_favorite_of(__get_current_user_id())
+    if not recipe:
+        # Nếu recipe chưa tồn tại trong social DB, tạo bản ghi rỗng chỉ để lưu trạng thái favorite
+        # Các field khác có thể để trống / mặc định
+        recipe = Recipe(
+            id=recipe_id,
+            title='',
+            description='',
+            thumbnail='',
+            author='',
+            category='',
+            difficulty='easy',
+            cooking_time=0,
+            ratings_count=0,
+            servings=0,
+            average_ratings=0.0,
+            rating_count=0,
+            favorited_user_ids=[],
+        )
+
+    recipe.set_as_favorite_of(user_id)
     RecipeRepository.save(recipe)
+
+    # Đồng bộ favoritesCount sang recipe-service
+    try:
+        import requests
+
+        recipe_service_url = 'http://localhost:8082'  # recipe-service port
+        url = f"{recipe_service_url}/recipes/{recipe_id}/favorite-count"
+        requests.post(url, json={"delta": 1}, timeout=5)
+    except Exception as e:
+        print("WARN: failed to sync favoritesCount to recipe-service:", e)
+
     return jsonify(), 200
 
 
 @bp.route('/api/recipes/<recipe_id>/favorite', methods=['DELETE'])
 def unfavorite_recipe(recipe_id: str):
+    body = request.get_json(silent=True) or {}
+    user_id = __get_current_user_id() or body.get('userId') or body.get('user_id')
+    if not user_id:
+        return jsonify({'message': 'Missing userId'}), 400
+
     recipe = RecipeRepository.get_by_id(recipe_id)
-    recipe.unset_as_favorite_of(__get_current_user_id())
+    # Nếu chưa có bản ghi hoặc user chưa favorite thì coi như đã bỏ yêu thích (idempotent)
+    if not recipe:
+        return jsonify(), 204
+
+    recipe.unset_as_favorite_of(user_id)
     RecipeRepository.save(recipe)
+
+    # Đồng bộ favoritesCount sang recipe-service (giảm 1)
+    try:
+        import requests
+
+        recipe_service_url = 'http://localhost:8082'  # recipe-service port
+        url = f"{recipe_service_url}/recipes/{recipe_id}/favorite-count"
+        requests.post(url, json={"delta": -1}, timeout=5)
+    except Exception as e:
+        print("WARN: failed to sync favoritesCount to recipe-service:", e)
+
     return jsonify(), 200
 
 

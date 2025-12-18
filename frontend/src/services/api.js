@@ -525,21 +525,33 @@ export const ratingAPI = {
   createRating: (recipeId, data) =>
     api.post(`/recipes/${recipeId}/ratings`, data),
   
-  getMyRating: (recipeId) => api.get(`/recipes/${recipeId}/ratings/me`),
+  getMyRating: (recipeId, userId) =>
+    api.get(`/recipes/${recipeId}/ratings/me`, {
+      params: userId ? { userId } : undefined,
+    }),
   
   updateRating: (recipeId, data) =>
     api.put(`/recipes/${recipeId}/ratings/me`, data),
   
-  deleteRating: (recipeId) => api.delete(`/recipes/${recipeId}/ratings/me`),
+  deleteRating: (recipeId, userId) =>
+    api.delete(`/recipes/${recipeId}/ratings/me`, {
+      params: userId ? { userId } : undefined,
+    }),
 }
 
 // ==================== FAVORITE API ====================
 export const favoriteAPI = {
   getFavorites: (params) => api.get('/favorites', { params }),
   
-  addFavorite: (recipeId) => api.post(`/recipes/${recipeId}/favorite`),
+  // Truyền kèm userId để comment-service biết ai là người yêu thích
+  addFavorite: (recipeId, userId) =>
+    api.post(`/recipes/${recipeId}/favorite`, userId ? { userId } : undefined),
   
-  removeFavorite: (recipeId) => api.delete(`/recipes/${recipeId}/favorite`),
+  // Axios DELETE muốn gửi body thì phải dùng config.data
+  removeFavorite: (recipeId, userId) =>
+    api.delete(`/recipes/${recipeId}/favorite`, {
+      data: userId ? { userId } : undefined,
+    }),
 }
 
 // ==================== FOLLOW API ====================

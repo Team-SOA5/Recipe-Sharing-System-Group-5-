@@ -151,7 +151,14 @@ def proxy_request(service_url, path, strip_prefix_count=2):
         elif request.method == 'PUT':
             response = requests.put(target_url, headers=headers, data=request.get_data(), timeout=30)
         elif request.method == 'DELETE':
-            response = requests.delete(target_url, headers=headers, timeout=30)
+            # DELETE cũng có thể mang body (vd: truyền userId),
+            # nên phải forward cả data giống POST/PUT/PATCH
+            response = requests.delete(
+                target_url,
+                headers=headers,
+                data=request.get_data(),
+                timeout=30
+            )
         elif request.method == 'PATCH':
             response = requests.patch(target_url, headers=headers, data=request.get_data(), timeout=30)
         else:
