@@ -40,7 +40,12 @@ def jwt_required(f):
         
         try:
             decoded = decode_jwt(auth_header)
-            g.user_id = decoded.get('sub')
+            # Thử lấy userId từ các field có thể có
+            g.user_id = decoded.get('sub') or decoded.get('userId') or decoded.get('user_id') or decoded.get('id')
+            if not g.user_id:
+                logger.error(f"JWT token không có userId field. Token fields: {list(decoded.keys())}")
+                error_code = ErrorCode.UNAUTHENTICATED
+                return jsonify({'code': error_code.code, 'message': 'Token không hợp lệ: thiếu userId'}), error_code.http_status.value
             logger.info(f"Authenticated user: {g.user_id}")
         except Exception:
             error_code = ErrorCode.UNAUTHENTICATED

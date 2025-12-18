@@ -18,6 +18,12 @@ def get_recommendations():
         user_id = g.user_id
         print(f"📋 [Recommendation] Fetching recommendations for user: {user_id}, page: {page}, limit: {limit}")
         print(f"📋 [Recommendation] User ID type: {type(user_id)}, value: {repr(user_id)}")
+        
+        # Kiểm tra nếu đang dùng MOCK_USER_ID
+        from utils.jwt_service import SKIP_AUTH, MOCK_USER_ID
+        if SKIP_AUTH:
+            print(f"⚠️ [Recommendation] WARNING: SKIP_AUTH is enabled! All users will use userId: {MOCK_USER_ID}")
+            print(f"⚠️ [Recommendation] This means all users will see the same recommendations!")
         if medical_record_id:
             print(f"📋 [Recommendation] Filtering by medicalRecordId: {medical_record_id}")
         

@@ -29,6 +29,17 @@ def async_pipeline(record_id, token):
             print(f"❌ [Async] Cannot fetch metadata for {record_id}")
             return
         
+        # Đảm bảo có userId trong meta
+        user_id_from_meta = meta.get('userId')
+        if not user_id_from_meta:
+            print(f"❌ [Async] Missing userId in medical record meta for {record_id}")
+            return
+        print(f"👤 [Async] Medical record userId: {user_id_from_meta}")
+        
+        # Lấy title từ meta để lưu vào recommendation
+        medical_record_title = meta.get('title', 'Untitled')
+        print(f"📋 [Async] Medical record title: {medical_record_title}")
+        
         file_url = meta.get('fileUrl')
         print(f"📥 [Async] Downloading file from: {file_url}...")
 
@@ -52,8 +63,8 @@ def async_pipeline(record_id, token):
         
         # Bước 4: Tạo Recommendation (Gợi ý món ăn) - TỰ ĐỘNG TẠO KHI UPLOAD HEALTH RECORD
         print("🍳 [Async] Generating recipe recommendations...")
-        user_id = meta.get('userId')
-        print(f"👤 [Async] User ID from meta: {user_id}")
+        user_id = user_id_from_meta  # Dùng userId đã kiểm tra ở bước 1
+        print(f"👤 [Async] Using userId for recommendation: {user_id}")
         
         try:
             # Lấy danh sách recipes từ Recipe Service
@@ -72,6 +83,7 @@ def async_pipeline(record_id, token):
                 recommendation_data = {
                     "userId": user_id,
                     "medicalRecordId": record_id,
+                    "medicalRecordTitle": medical_record_title,  # Lưu title để không cần fetch lại
                     "analysisSummary": ai_recommendation.get("analysisSummary", "Đã phân tích hồ sơ sức khỏe và gợi ý món ăn phù hợp"),
                     "recommendations": recommendations_list,
                     "healthData": extracted_data

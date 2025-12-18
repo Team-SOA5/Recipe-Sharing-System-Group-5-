@@ -105,7 +105,17 @@ def get_medical_records():
     page = int(request.args.get('page', 1))
     limit = int(request.args.get('limit', 10))
     status = request.args.get('status')
-    records, total = record_model.find_all(g.user_id, page, limit, status)
+    
+    user_id = g.user_id
+    print(f"📋 [Health] Fetching medical records for user: {user_id}")
+    
+    # Kiểm tra nếu đang dùng MOCK_USER_ID
+    from utils.jwt_service import SKIP_AUTH, MOCK_USER_ID
+    if SKIP_AUTH:
+        print(f"⚠️ [Health] WARNING: SKIP_AUTH is enabled! All users will use userId: {MOCK_USER_ID}")
+        print(f"⚠️ [Health] This means all users will see the same medical records!")
+    
+    records, total = record_model.find_all(user_id, page, limit, status)
     return jsonify({
         "data": records,
         "pagination": {"currentPage": page, "totalItems": total, "totalPages": (total + limit - 1) // limit}
