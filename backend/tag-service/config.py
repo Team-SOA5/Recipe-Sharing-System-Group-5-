@@ -8,7 +8,7 @@ class Config:
     """Application configuration"""
     
     # Server configuration
-    SERVER_PORT = int(os.getenv('SERVER_PORT', 8084))
+    SERVER_PORT = int(os.getenv('SERVER_PORT', 8085))
     
     # Application name
     APPLICATION_NAME = os.getenv('APPLICATION_NAME', 'tag-service')

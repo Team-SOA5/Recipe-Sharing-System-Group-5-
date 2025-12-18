@@ -34,7 +34,8 @@ SERVICES = {
     "media-service": "http://localhost:8090",
     "recipe-service": "http://localhost:8082",
     "category-service": "http://localhost:8083",
-    "health-service": "http://localhost:8084",
+    "tag-service": "http://localhost:8084",
+    "health-service": "http://localhost:8086",
     "ai-service": "http://localhost:8092"
 }
 
@@ -209,6 +210,15 @@ def category_service_handler(subpath=''):
     return proxy_request(SERVICES['category-service'], request.path, strip_prefix_count=2)
 
 
+# Tag service routes
+@app.route(f'{API_PREFIX}/tags', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], strict_slashes=False)
+@app.route(f'{API_PREFIX}/tags/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+@authentication_filter
+def tag_service_handler(subpath=''):
+    """Route requests to tag service"""
+    return proxy_request(SERVICES['tag-service'], request.path, strip_prefix_count=2)
+
+
 # Health service routes
 @app.route(f'{API_PREFIX}/health', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], strict_slashes=False)
 @app.route(f'{API_PREFIX}/health/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
@@ -237,3 +247,4 @@ def health_check():
 if __name__ == '__main__':
     logger.info(f"Starting API Gateway on port {PORT}")
     app.run(host='0.0.0.0', port=PORT, debug=True)
+
