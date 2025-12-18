@@ -1,0 +1,10 @@
+Hướng dẫn chạy comment-service
+    Bước 1: Cài đặt môi trường
+        Đảm bảo đã cài đặt Python 3.8
+        Cài đặt MySQL
+
+    Bước 2: Cấu hình
+        Kiểm tra file application.yaml và điều chỉnh nếu cần. Có thể cần thay đổi URI đến cơ sở dữ liệu MySQL ở máy.
+
+    Bước 3: Chay:
+        Chạy file app.py

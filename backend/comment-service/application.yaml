@@ -1,0 +1,14 @@
+server:
+  port: 8101
+
+application:
+  name: comment-service
+
+database:
+  url: "mysql+pymysql://root:_mySql.io0@localhost:3306/socials"
+  driver: "pymysql"
+  echo: true
+  track_modifications: false
+
+services:
+  profile_service_url: "http://localhost:8101/comments"
