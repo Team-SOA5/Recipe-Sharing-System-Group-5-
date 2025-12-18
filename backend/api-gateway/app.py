@@ -34,7 +34,7 @@ SERVICES = {
     "media-service": "http://localhost:8090",
     "recipe-service": "http://localhost:8082",
     "category-service": "http://localhost:8083",
-    "health-service": "http://localhost:8084",
+    "health-service": "http://localhost:8091",
     "ai-service": "http://localhost:8092"
 }
 
