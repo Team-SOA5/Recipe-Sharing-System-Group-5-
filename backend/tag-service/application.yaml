@@ -1,0 +1,10 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: tag-service
+  data:
+    mongodb:
+      uri: mongodb://root:root@localhost:27017/tag-service?authSource=admin
+      auto-index-creation: true
