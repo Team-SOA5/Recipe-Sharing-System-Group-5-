@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
-import { aiAPI, recipeAPI } from '../services/api'
+import { FiTrash2 } from 'react-icons/fi'
+import { aiAPI, recipeAPI, healthAPI } from '../services/api'
 
 export default function AIRecommendations() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
+  const [recommendationToDelete, setRecommendationToDelete] = useState(null)
 
   useEffect(() => {
     loadRecommendations()
@@ -22,9 +25,27 @@ export default function AIRecommendations() {
       console.log('Parsed recommendations:', recommendations)
       console.log('Number of recommendations:', recommendations.length)
       
-      // Fetch recipe details cho mỗi recommendation
+      // Fetch health record title và recipe details cho mỗi recommendation
       const enrichedItems = await Promise.all(
         recommendations.map(async (item) => {
+          // Lấy medical record title - ưu tiên từ data, nếu không có thì fetch
+          let medicalRecordTitle = item.medicalRecordTitle || item.medicalRecordId
+          
+          // Nếu không có title trong data, fetch từ health service (cho các recommendations cũ)
+          if (!item.medicalRecordTitle && item.medicalRecordId) {
+            try {
+              const healthRecord = await healthAPI.getMedicalRecord(item.medicalRecordId)
+              console.log(`Health record response for ${item.medicalRecordId}:`, healthRecord)
+              // Axios interceptor đã extract response.data, nên healthRecord là object record
+              medicalRecordTitle = healthRecord?.title || item.medicalRecordId
+            } catch (error) {
+              console.error(`Failed to fetch health record ${item.medicalRecordId}:`, error)
+              console.error('Error details:', error.response?.data)
+              // Giữ nguyên ID nếu không fetch được
+            }
+          }
+
+          // Fetch recipe details nếu có
           if (Array.isArray(item.recommendations) && item.recommendations.length > 0) {
             const enrichedRecs = await Promise.allSettled(
               item.recommendations.map(async (rec) => {
@@ -51,12 +72,17 @@ export default function AIRecommendations() {
             
             return {
               ...item,
+              medicalRecordTitle,
               recommendations: enrichedRecs
                 .filter(r => r.status === 'fulfilled')
                 .map(r => r.value)
             }
           }
-          return item
+          
+          return {
+            ...item,
+            medicalRecordTitle
+          }
         })
       )
       
@@ -67,6 +93,28 @@ export default function AIRecommendations() {
       toast.error(error.response?.data?.message || 'Không thể tải gợi ý từ AI')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDeleteConfirm = (recommendation) => {
+    setRecommendationToDelete(recommendation)
+  }
+
+  const handleDelete = async () => {
+    if (!recommendationToDelete) return
+
+    try {
+      setDeletingId(recommendationToDelete.id)
+      await aiAPI.deleteRecommendation(recommendationToDelete.id)
+      toast.success('Đã xóa gợi ý thành công')
+      setRecommendationToDelete(null)
+      // Reload danh sách
+      loadRecommendations()
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Không thể xóa gợi ý')
+      console.error('Delete recommendation error:', error)
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -97,11 +145,20 @@ export default function AIRecommendations() {
         ) : (
           <div className="space-y-4">
             {items.map((item) => (
-              <div key={item.id} className="border rounded-lg p-4 space-y-2">
-                <p className="text-xs text-gray-500">
-                  Hồ sơ: <span className="font-medium">{item.medicalRecordId}</span> •{' '}
-                  {item.createdAt}
-                </p>
+              <div key={item.id} className="border rounded-lg p-4 space-y-2 relative">
+                <div className="flex justify-between items-start mb-2">
+                  <p className="text-xs text-gray-500">
+                    Hồ sơ: <span className="font-medium">{item.medicalRecordTitle || item.medicalRecordId}</span>
+                    {item.createdAt && ` • ${item.createdAt}`}
+                  </p>
+                  <button
+                    onClick={() => handleDeleteConfirm(item)}
+                    className="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded transition-colors"
+                    title="Xóa gợi ý"
+                  >
+                    <FiTrash2 size={18} />
+                  </button>
+                </div>
                 {item.analysisSummary && (
                   <p className="text-sm text-gray-700 mb-2">
                     <span className="font-medium">Tóm tắt phân tích:</span> {item.analysisSummary}
@@ -150,6 +207,34 @@ export default function AIRecommendations() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {recommendationToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold mb-4">Xác nhận xóa</h3>
+            <p className="text-gray-600 mb-6">
+              Bạn có chắc chắn muốn xóa gợi ý này? Hành động này không thể hoàn tác.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setRecommendationToDelete(null)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                disabled={deletingId === recommendationToDelete.id}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={deletingId === recommendationToDelete.id}
+              >
+                {deletingId === recommendationToDelete.id ? 'Đang xóa...' : 'Xác nhận'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
