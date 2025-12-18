@@ -39,8 +39,11 @@ SERVICES = {
 }
 
 # Public endpoints (no authentication required)
+# - /auth/*: authentication & token issuance
+# - /media/download/*: cho phép browser tải ảnh/file công khai (avatar, image) không cần gửi Authorization header
 PUBLIC_ENDPOINTS = [
-    r"/auth/.*"
+    r"/auth/.*",
+    r"/media/download/.*"
 ]
 
 

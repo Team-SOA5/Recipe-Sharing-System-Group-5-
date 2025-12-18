@@ -21,7 +21,6 @@ file_service = FileService(file_management_repository, file_repository)
 
 
 @file_bp.route('/download/<file_name>', methods=['GET'])
-@token_required
 def download(file_name):
     """
     Endpoint để download file
