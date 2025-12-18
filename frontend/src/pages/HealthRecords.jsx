@@ -9,6 +9,8 @@ export default function HealthRecords() {
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
   const [file, setFile] = useState(null)
+  const [deletingId, setDeletingId] = useState(null)
+  const [recordToDelete, setRecordToDelete] = useState(null)
   const fileInputRef = useRef(null)
 
   useEffect(() => {
@@ -72,6 +74,27 @@ export default function HealthRecords() {
     }
   }
 
+  const handleDeleteConfirm = (record) => {
+    setRecordToDelete(record)
+  }
+
+  const handleDelete = async () => {
+    if (!recordToDelete) return
+    const recordId = recordToDelete.id
+    try {
+      setDeletingId(recordId)
+      await healthAPI.deleteMedicalRecord(recordId)
+      setRecords((prev) => prev.filter((rec) => rec.id !== recordId))
+      toast.success('Đã xóa hồ sơ')
+    } catch (error) {
+      console.error('Delete medical record failed', error)
+      toast.error(error.response?.data?.message || 'Xóa hồ sơ thất bại')
+    } finally {
+      setDeletingId(null)
+      setRecordToDelete(null)
+    }
+  }
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="flex items-center justify-between mb-6">
@@ -117,7 +140,7 @@ export default function HealthRecords() {
         </form>
       </div>
 
-      <div className="card p-6">
+      <div className="card p-6 relative">
         <h2 className="text-xl font-semibold mb-4">Lịch sử hồ sơ</h2>
         {loading ? (
           <div className="flex justify-center py-8">
@@ -128,8 +151,11 @@ export default function HealthRecords() {
         ) : (
           <div className="space-y-4">
             {records.map((rec) => (
-              <div key={rec.id} className="border rounded-lg p-4 flex justify-between items-start">
-                <div>
+              <div
+                key={rec.id}
+                className="border rounded-lg p-4 flex justify-between items-start gap-4"
+              >
+                <div className="flex-1">
                   <h3 className="font-semibold">{rec.title}</h3>
                   <p className="text-sm text-gray-500 mb-1">
                     Trạng thái: <span className="font-medium">{rec.status}</span>
@@ -140,19 +166,59 @@ export default function HealthRecords() {
                     </p>
                   )}
                 </div>
-                <a
-                  href={rec.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary-600 text-sm hover:underline"
-                >
-                  Xem file
-                </a>
+                <div className="flex flex-col items-end gap-2">
+                  <a
+                    href={rec.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-600 text-sm hover:underline"
+                  >
+                    Xem file
+                  </a>
+                  <button
+                    type="button"
+                    className="text-sm text-red-600 hover:underline disabled:opacity-60"
+                    onClick={() => handleDeleteConfirm(rec)}
+                    disabled={deletingId === rec.id}
+                  >
+                    {deletingId === rec.id ? 'Đang xóa...' : 'Xóa hồ sơ'}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {recordToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg max-w-sm w-full p-6">
+            <h3 className="text-lg font-semibold mb-2">Xác nhận xóa hồ sơ</h3>
+            <p className="text-sm text-gray-700 mb-4">
+              Bạn có chắc chắn muốn xóa hồ sơ{' '}
+              <span className="font-medium">"{recordToDelete.title}"</span>? Hành động này không thể hoàn tác.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setRecordToDelete(null)}
+                disabled={!!deletingId}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="btn-primary bg-orange-500 hover:bg-orange-600 border-orange-500"
+                onClick={handleDelete}
+                disabled={!!deletingId}
+              >
+                {deletingId ? 'Đang xóa...' : 'Xác nhận'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
