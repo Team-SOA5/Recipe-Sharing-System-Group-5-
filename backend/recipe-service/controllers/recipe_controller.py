@@ -111,15 +111,38 @@ def create_recipe():
             fiber=nutri_data.get('fiber', 0)
         )
 
+        # Lấy author_id từ JWT hoặc fallback
+        author_id = getattr(g, 'user_id', None) or data.get('authorId') or data.get('author_id')
+        if not author_id:
+            return jsonify({
+                "code": ErrorCode.UNAUTHENTICATED.code if hasattr(ErrorCode, 'UNAUTHENTICATED') else 401,
+                "message": "Missing author_id. Please login or provide authorId in request body."
+            }), 401
+
+        # Convert cookingTime và servings sang int nếu là string
+        cooking_time = data.get('cookingTime', 0)
+        if isinstance(cooking_time, str):
+            try:
+                cooking_time = int(cooking_time)
+            except:
+                cooking_time = 0
+        
+        servings_count = data.get('servings', 1)
+        if isinstance(servings_count, str):
+            try:
+                servings_count = int(servings_count)
+            except:
+                servings_count = 1
+
         new_recipe = Recipe(
             title=data['title'],
             description=data.get('description', ''),
             thumbnail=data.get('thumbnail', ''),
-            author_id=g.user_id,
+            author_id=author_id,
             category_id=data.get('categoryId', ''),
             difficulty=data.get('difficulty', 'medium'),
-            cookingTime=data.get('cookingTime', 0),
-            servings=data.get('servings', 1),
+            cookingTime=cooking_time,
+            servings=servings_count,
             ingredients=ingredients_objs,
             instructions=instructions_objs,
             images=data.get('images', []) if isinstance(data.get('images'), list) else [],
@@ -245,12 +268,6 @@ def update_favorite_count(recipeId):
 
 # --- 6c. Internal: cập nhật thống kê rating (POST /recipes/{id}/rating-stats) ---
 def update_rating_stats(recipeId):
-    """
-    Internal endpoint cho comment-service để đồng bộ averageRating và ratingsCount.
-    Body:
-      - rating: điểm mới (bắt buộc)
-      - oldRating: điểm cũ (nullable). Nếu null -> user rating lần đầu.
-    """
     try:
         data = request.get_json(silent=True) or {}
         if "rating" not in data:

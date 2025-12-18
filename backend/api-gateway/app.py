@@ -34,6 +34,7 @@ SERVICES = {
     "media-service": "http://localhost:8090",
     "recipe-service": "http://localhost:8082",
     "category-service": "http://localhost:8083",
+    "tag-service": "http://localhost:8084",
     "health-service": "http://localhost:8091",
     "ai-service": "http://localhost:8092",
     # Comment / rating / favorite / follow service
@@ -237,6 +238,15 @@ def recipe_service_handler(subpath=''):
 def category_service_handler(subpath=''):
     """Route requests to category service"""
     return proxy_request(SERVICES['category-service'], request.path, strip_prefix_count=2)
+
+
+# Tag service routes
+@app.route(f'{API_PREFIX}/tags', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], strict_slashes=False)
+@app.route(f'{API_PREFIX}/tags/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
+@authentication_filter
+def tag_service_handler(subpath=''):
+    """Route requests to tag service"""
+    return proxy_request(SERVICES['tag-service'], request.path, strip_prefix_count=2)
 
 
 # Health service routes

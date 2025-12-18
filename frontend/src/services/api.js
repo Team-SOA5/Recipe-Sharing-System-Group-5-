@@ -484,11 +484,17 @@ export const categoryAPI = {
 export const tagAPI = {
   getTags: (params) => api.get('/tags', { params }),
   
-  getPopularTags: (limit) => 
-    callAPI(
+  getPopularTags: async (limit) => {
+    const data = await callAPI(
       () => mockAPI.getPopularTags(limit),
       () => api.get('/tags/popular', { params: { limit } })
-    ),
+    )
+    // Backend tag-service trả về dạng { tagResponseList: [...] }
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.data?.tagResponseList)) return data.data.tagResponseList
+    if (Array.isArray(data?.tagResponseList)) return data.tagResponseList
+    return []
+  },
   
   createTag: (name) => api.post('/tags', { name }),
 }
