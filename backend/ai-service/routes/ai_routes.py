@@ -1,9 +1,12 @@
 from flask import Blueprint
 from controllers.analyze_controller import trigger_analysis, chat_with_ai
-from controllers.recommendation_controller import (
-    get_recommendations, get_detail, delete_recommendation, submit_feedback
-)
 from utils.jwt_service import jwt_required
+from controllers.recommendation_controller import (
+    get_recommendations, 
+    get_detail, 
+    delete_recommendation, 
+    submit_feedback
+)
 
 ai_bp = Blueprint('ai', __name__)
 
