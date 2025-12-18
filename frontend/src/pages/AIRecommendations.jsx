@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { aiAPI } from '../services/api'
+import { Link } from 'react-router-dom'
+import { aiAPI, recipeAPI } from '../services/api'
 
 export default function AIRecommendations() {
   const [items, setItems] = useState([])
@@ -14,9 +15,55 @@ export default function AIRecommendations() {
     try {
       setLoading(true)
       const res = await aiAPI.getRecommendations()
-      setItems(res.data || [])
+      console.log('AI Recommendations API Response:', res)
+      
+      // Axios interceptor đã extract response.data, nên res là { data: [...], pagination: {...} }
+      const recommendations = res?.data || []
+      console.log('Parsed recommendations:', recommendations)
+      console.log('Number of recommendations:', recommendations.length)
+      
+      // Fetch recipe details cho mỗi recommendation
+      const enrichedItems = await Promise.all(
+        recommendations.map(async (item) => {
+          if (Array.isArray(item.recommendations) && item.recommendations.length > 0) {
+            const enrichedRecs = await Promise.allSettled(
+              item.recommendations.map(async (rec) => {
+                const recipeId = typeof rec === 'object' ? rec.recipeId : rec
+                try {
+                  const recipeData = await recipeAPI.getRecipe(recipeId)
+                  return {
+                    ...rec,
+                    recipeId,
+                    recipeName: recipeData?.title || `Recipe ${recipeId}`,
+                    recipe: recipeData
+                  }
+                } catch (error) {
+                  console.error(`Failed to fetch recipe ${recipeId}:`, error)
+                  return {
+                    ...rec,
+                    recipeId,
+                    recipeName: `Recipe ${recipeId}`,
+                    recipe: null
+                  }
+                }
+              })
+            )
+            
+            return {
+              ...item,
+              recommendations: enrichedRecs
+                .filter(r => r.status === 'fulfilled')
+                .map(r => r.value)
+            }
+          }
+          return item
+        })
+      )
+      
+      setItems(enrichedItems)
     } catch (error) {
       console.error('Failed to load AI recommendations', error)
+      console.error('Error details:', error.response?.data)
       toast.error(error.response?.data?.message || 'Không thể tải gợi ý từ AI')
     } finally {
       setLoading(false)
@@ -61,11 +108,42 @@ export default function AIRecommendations() {
                   </p>
                 )}
                 {Array.isArray(item.recommendations) && item.recommendations.length > 0 && (
-                  <ul className="list-disc pl-5 text-sm text-gray-700 space-y-1">
-                    {item.recommendations.map((rec, idx) => (
-                      <li key={idx}>{rec}</li>
-                    ))}
-                  </ul>
+                  <div className="space-y-3">
+                    <p className="font-medium text-sm text-gray-700">Món ăn được gợi ý:</p>
+                    <ul className="space-y-2">
+                      {item.recommendations.map((rec, idx) => {
+                        // rec có thể là object {recipeId, reason, recipeName, recipe} hoặc string
+                        const recipeId = typeof rec === 'object' ? rec.recipeId : rec
+                        const reason = typeof rec === 'object' ? rec.reason : ''
+                        const recipeName = typeof rec === 'object' ? rec.recipeName : null
+                        const recipe = typeof rec === 'object' ? rec.recipe : null
+                        
+                        return (
+                          <li key={idx} className="border-l-4 border-primary-500 pl-3 py-2 bg-gray-50 rounded-r">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                {recipeName ? (
+                                  <Link 
+                                    to={`/recipes/${recipeId}`}
+                                    className="font-medium text-sm text-primary-600 hover:text-primary-700 hover:underline"
+                                  >
+                                    {recipeName}
+                                  </Link>
+                                ) : (
+                                  <p className="font-medium text-sm text-gray-800">
+                                    Món ăn ID: {recipeId}
+                                  </p>
+                                )}
+                                {reason && (
+                                  <p className="text-xs text-gray-600 mt-1">{reason}</p>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
                 )}
               </div>
             ))}

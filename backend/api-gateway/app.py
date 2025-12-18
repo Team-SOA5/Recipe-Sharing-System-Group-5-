@@ -264,7 +264,56 @@ def health_service_handler(subpath=''):
 @authentication_filter
 def ai_service_handler(subpath=''):
     """Route requests to AI service"""
-    return proxy_request(SERVICES['ai-service'], request.path, strip_prefix_count=2)
+    # Log để debug
+    logger.info(f"AI Service Handler - Original path: {request.path}, Subpath: {subpath}")
+    # Strip /api/v1, giữ lại /ai/...
+    # Nếu subpath có giá trị, dùng nó; nếu không, strip từ path
+    if subpath:
+        target_path = f'/ai/{subpath}'
+    else:
+        # Strip /api/v1 từ path
+        path_parts = request.path.split('/')
+        filtered_parts = [p for p in path_parts if p]
+        if len(filtered_parts) >= 2:
+            # Bỏ 'api' và 'v1', giữ lại phần còn lại
+            target_path = '/' + '/'.join(filtered_parts[2:])
+        else:
+            target_path = '/ai'
+    
+    logger.info(f"AI Service Handler - Target path: {target_path}")
+    target_url = f"{SERVICES['ai-service']}{target_path}"
+    
+    # Add query parameters if present
+    if request.query_string:
+        target_url += f"?{request.query_string.decode('utf-8')}"
+    
+    # Prepare headers (exclude host header)
+    headers = {key: value for key, value in request.headers if key.lower() != 'host'}
+    
+    try:
+        # Forward request to target service
+        if request.method == 'GET':
+            response = requests.get(target_url, headers=headers, timeout=30)
+        elif request.method == 'POST':
+            response = requests.post(target_url, headers=headers, data=request.get_data(), timeout=30)
+        elif request.method == 'PUT':
+            response = requests.put(target_url, headers=headers, data=request.get_data(), timeout=30)
+        elif request.method == 'DELETE':
+            response = requests.delete(target_url, headers=headers, data=request.get_data(), timeout=30)
+        elif request.method == 'PATCH':
+            response = requests.patch(target_url, headers=headers, data=request.get_data(), timeout=30)
+        else:
+            return jsonify(create_api_response(code=405, message="Method not allowed")), 405
+        
+        # Return response
+        return Response(
+            response.content,
+            status=response.status_code,
+            headers=dict(response.headers)
+        )
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error proxying to AI service: {str(e)}")
+        return jsonify(create_api_response(code=500, message=f"Service unavailable: {str(e)}")), 500
 
 
 # Health check endpoint

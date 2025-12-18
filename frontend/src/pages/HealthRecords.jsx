@@ -12,10 +12,64 @@ export default function HealthRecords() {
   const [deletingId, setDeletingId] = useState(null)
   const [recordToDelete, setRecordToDelete] = useState(null)
   const fileInputRef = useRef(null)
+  const pollingIntervalRef = useRef(null)
 
   useEffect(() => {
     loadRecords()
+    
+    // Bắt đầu polling để cập nhật status tự động
+    startPolling()
+    
+    // Cleanup khi component unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
   }, [])
+
+  // Polling để cập nhật status tự động
+  const startPolling = () => {
+    // Kiểm tra mỗi 10 giây
+    pollingIntervalRef.current = setInterval(async () => {
+      try {
+        const res = await healthAPI.getMedicalRecords()
+        const updatedRecords = res.data || []
+        
+        // Cập nhật state chỉ khi có thay đổi
+        setRecords((prevRecords) => {
+          // Kiểm tra xem có records đang pending/processing không
+          const hasPendingRecords = prevRecords.some(
+            (rec) => rec.status === 'pending' || rec.status === 'processing'
+          )
+          
+          // Nếu không còn records pending, dừng polling
+          const stillHasPending = updatedRecords.some(
+            (rec) => rec.status === 'pending' || rec.status === 'processing'
+          )
+          
+          if (!stillHasPending && hasPendingRecords) {
+            // Tất cả đã xong, có thể dừng polling (nhưng để tiếp tục chạy để đơn giản)
+          }
+          
+          // Kiểm tra có thay đổi không
+          const hasChanges = prevRecords.some((prev) => {
+            const updated = updatedRecords.find((r) => r.id === prev.id)
+            return updated && updated.status !== prev.status
+          })
+          
+          if (hasChanges) {
+            // Có thay đổi, cập nhật toàn bộ
+            return updatedRecords
+          }
+          return prevRecords
+        })
+      } catch (error) {
+        // Silent fail để không làm phiền user
+        console.error('Failed to refresh records:', error)
+      }
+    }, 10000) // 10 giây
+  }
 
   const loadRecords = async () => {
     try {
@@ -158,8 +212,37 @@ export default function HealthRecords() {
                 <div className="flex-1">
                   <h3 className="font-semibold">{rec.title}</h3>
                   <p className="text-sm text-gray-500 mb-1">
-                    Trạng thái: <span className="font-medium">{rec.status}</span>
+                    Trạng thái:{' '}
+                    <span
+                      className={`font-medium ${
+                        rec.status === 'processed'
+                          ? 'text-green-600'
+                          : rec.status === 'failed'
+                          ? 'text-red-600'
+                          : rec.status === 'processing' || rec.status === 'pending'
+                          ? 'text-yellow-600'
+                          : ''
+                      }`}
+                    >
+                      {rec.status === 'pending'
+                        ? 'Đang chờ xử lý'
+                        : rec.status === 'processing'
+                        ? 'Đang xử lý...'
+                        : rec.status === 'processed'
+                        ? 'Đã xử lý'
+                        : rec.status === 'failed'
+                        ? 'Thất bại'
+                        : rec.status}
+                    </span>
+                    {(rec.status === 'processing' || rec.status === 'pending') && (
+                      <span className="ml-2 inline-block animate-pulse">●</span>
+                    )}
                   </p>
+                  {rec.errorMessage && (
+                    <p className="text-sm text-red-600 mt-1">
+                      Lỗi: {rec.errorMessage}
+                    </p>
+                  )}
                   {rec.analysisSummary && (
                     <p className="text-sm text-gray-700 mt-1">
                       Tóm tắt: {rec.analysisSummary}

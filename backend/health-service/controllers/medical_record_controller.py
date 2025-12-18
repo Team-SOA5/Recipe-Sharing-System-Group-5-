@@ -46,7 +46,12 @@ def upload_to_media_service(file, token):
 
 def trigger_ai_analysis(record_id, token):
     """Gửi tín hiệu sang AI Service để bắt đầu phân tích"""
-    ai_url = os.getenv('AI_SERVICE_URL')
+    ai_url = os.getenv('AI_SERVICE_URL', 'http://localhost:8092')
+    # Đảm bảo URL không có trailing slash và không có /ai ở cuối
+    ai_url = ai_url.rstrip('/')
+    if ai_url.endswith('/ai'):
+        ai_url = ai_url[:-3]  # Bỏ /ai nếu có
+    
     try:
         headers = {'Authorization': token}
         payload = {
@@ -54,6 +59,7 @@ def trigger_ai_analysis(record_id, token):
             "options": {"mode": "full_analysis"} 
         }
         # Fire and Forget (Không chờ kết quả)
+        # Gọi trực tiếp đến ai-service với endpoint /ai/analyze (blueprint có url_prefix='/ai')
         requests.post(f"{ai_url}/ai/analyze", json=payload, headers=headers, timeout=5)
     except Exception as e:
         print(f"Trigger AI Error: {e}")

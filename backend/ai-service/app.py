@@ -10,7 +10,7 @@ from routes.ai_routes import ai_bp
 app = Flask(__name__)
 CORS(app)
 
-app.register_blueprint(ai_bp)
+app.register_blueprint(ai_bp, url_prefix='/ai')
 
 # Error Handlers (Tương tự các service khác)
 @app.errorhandler(AppError)

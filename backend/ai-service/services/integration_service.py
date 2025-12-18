@@ -7,7 +7,7 @@ class IntegrationService:
         # Lưu ý: Trong .env nên để http://127.0.0.1:8091 (không có dấu / ở cuối)
         self.health_url = os.getenv('HEALTH_SERVICE_URL', 'http://127.0.0.1:8091')
         self.media_url = os.getenv('MEDIA_SERVICE_URL', 'http://127.0.0.1:8888')
-        self.recipe_url = os.getenv('RECIPE_SERVICE_URL', 'http://127.0.0.1:8080')
+        self.recipe_url = os.getenv('RECIPE_SERVICE_URL', 'http://127.0.0.1:8082')
 
     def get_medical_record_meta(self, record_id, token):
         try:
@@ -76,34 +76,73 @@ class IntegrationService:
 
     def search_recipes(self, keywords=None):
         try:
-            url = f"{self.recipe_url}/api/v1/recipes" if '/api/v1' not in self.recipe_url else f"{self.recipe_url}/recipes"
-            params = {'limit': 5} # Lấy 5 món mẫu
+            # Gọi trực tiếp Recipe Service
+            # Recipe service blueprint được register với url_prefix='/recipes'
+            # Vậy endpoint là: http://localhost:8082/recipes (không có /api/v1)
+            url = f"{self.recipe_url}/recipes"
+            params = {'limit': 20}  # Lấy nhiều món hơn để AI có nhiều lựa chọn
             
             if keywords:
                 params['q'] = keywords
                 
-            print(f"🍳 Calling Recipe Service: {url} | Keywords: {keywords}")
-            resp = requests.get(url, params=params, timeout=5)
+            print(f"🍳 [Integration] Calling Recipe Service: {url} | Params: {params}")
+            
+            # Không cần authentication cho GET /recipes (public route)
+            resp = requests.get(url, params=params, timeout=10)
+            
+            print(f"📊 [Integration] Recipe Service Response Status: {resp.status_code}")
             
             if resp.status_code == 200:
                 data = resp.json()
+                print(f"📊 [Integration] Recipe Service Response Data keys: {list(data.keys()) if isinstance(data, dict) else 'Not a dict'}")
                 recipes = data.get('data', [])
                 
+                print(f"✅ [Integration] Received {len(recipes)} recipes from Recipe Service")
+                if len(recipes) > 0:
+                    print(f"📋 [Integration] First recipe sample (keys): {list(recipes[0].keys()) if recipes[0] else 'empty'}")
+                    print(f"📋 [Integration] First recipe ID: {recipes[0].get('id') if recipes[0] else 'none'}")
+                else:
+                    pagination = data.get('pagination', {})
+                    total_items = pagination.get('totalItems', 'unknown')
+                    print(f"⚠️ [Integration] No recipes in response. Total items in DB: {total_items}, Current page: {pagination.get('page', 'unknown')}, Limit: {pagination.get('limit', 'unknown')}")
+                
+                # Trả về đầy đủ thông tin để AI có thể đánh giá
                 simplified_recipes = []
                 for r in recipes:
+                    # Lấy ingredients từ detail nếu có, hoặc từ summary
+                    ingredients_list = r.get("ingredients", [])
+                    if isinstance(ingredients_list, list) and len(ingredients_list) > 0:
+                        # Nếu là list of objects, lấy name
+                        if isinstance(ingredients_list[0], dict):
+                            ingredients_str = ", ".join([ing.get("name", "") for ing in ingredients_list])
+                        else:
+                            ingredients_str = ", ".join(ingredients_list)
+                    else:
+                        ingredients_str = ""
+                    
                     simplified_recipes.append({
                         "id": r.get("id"),
                         "title": r.get("title"),
-                        "ingredients": r.get("ingredients"),
-                        "nutrition": r.get("nutrition", {})
+                        "description": r.get("description", ""),
+                        "ingredients": ingredients_str,
+                        "difficulty": r.get("difficulty", ""),
+                        "cookingTime": r.get("cookingTime", 0),
+                        "nutritionInfo": r.get("nutritionInfo", {})
                     })
                 return simplified_recipes
+            else:
+                print(f"❌ [Integration] Recipe Service error response (Status {resp.status_code}): {resp.text}")
+                return []
             
-            print(f"⚠️ Recipe Service returned {resp.status_code}")
+        except requests.exceptions.RequestException as e:
+            print(f"❌ [Integration] Request error calling Recipe Service: {e}")
+            import traceback
+            traceback.print_exc()
             return []
-            
         except Exception as e:
-            print(f"⚠️ Error calling Recipe Service: {e}")
+            print(f"❌ [Integration] Unexpected error calling Recipe Service: {e}")
+            import traceback
+            traceback.print_exc()
             return [] 
 
     def update_medical_record(self, record_id, token, update_data):

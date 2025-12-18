@@ -4,12 +4,14 @@ from flask import request, jsonify
 from services.llama_service import LlamaService
 from services.groq_service import GroqService 
 from services.integration_service import IntegrationService
+from models.recommendation_model import RecommendationModel
 from exceptions.exceptions import ValidationError
 
 # --- INIT SERVICES ---
 llama_service = LlamaService()
 groq_service = GroqService()
 integration_service = IntegrationService()
+rec_model = RecommendationModel()
 
 # --- 1. HÀM XỬ LÝ NGẦM (PIPELINE) ---
 def async_pipeline(record_id, token):
@@ -46,8 +48,46 @@ def async_pipeline(record_id, token):
         
         print("🧠 [Async] Extracting data with Groq...")
         extracted_data = groq_service.extract_health_data(markdown_text, is_image=False)
+        print(f"✅ [Async] Data extraction completed")
         
-        # Bước 4: Gọi Callback về Health Service
+        # Bước 4: Tạo Recommendation (Gợi ý món ăn) - TỰ ĐỘNG TẠO KHI UPLOAD HEALTH RECORD
+        print("🍳 [Async] Generating recipe recommendations...")
+        user_id = meta.get('userId')
+        print(f"👤 [Async] User ID from meta: {user_id}")
+        
+        try:
+            # Lấy danh sách recipes từ Recipe Service
+            recipes = integration_service.search_recipes()
+            print(f"📋 [Async] Found {len(recipes)} recipes from Recipe Service")
+            
+            if len(recipes) > 0:
+                # Gọi AI để gợi ý món ăn dựa trên health data
+                options = {"maxRecommendations": 5}
+                ai_recommendation = groq_service.recommend_recipes(extracted_data, recipes, options)
+                
+                recommendations_list = ai_recommendation.get('recommendations', [])
+                print(f"✅ [Async] AI generated {len(recommendations_list)} recommendations")
+                
+                # Lưu recommendation vào MongoDB
+                recommendation_data = {
+                    "userId": user_id,
+                    "medicalRecordId": record_id,
+                    "analysisSummary": ai_recommendation.get("analysisSummary", "Đã phân tích hồ sơ sức khỏe và gợi ý món ăn phù hợp"),
+                    "recommendations": recommendations_list,
+                    "healthData": extracted_data
+                }
+                
+                rec_id = rec_model.create(recommendation_data)
+                print(f"💾 [Async] Recommendation saved with ID: {rec_id} for userId: {user_id}")
+            else:
+                print("⚠️ [Async] No recipes available, skipping recommendation generation")
+        except Exception as e:
+            print(f"⚠️ [Async] Recommendation generation failed: {e}")
+            import traceback
+            traceback.print_exc()
+            # Không fail toàn bộ pipeline nếu recommendation fail
+        
+        # Bước 5: Gọi Callback về Health Service
         print("🔄 [Async] Sending results back to Health Service...")
         update_payload = {
             "status": "processed",

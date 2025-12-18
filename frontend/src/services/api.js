@@ -572,7 +572,7 @@ export const searchAPI = {
   searchRecipes: (params) =>
     callAPI(
       () => mockAPI.searchRecipes(params),
-      () => api.get('/search/recipes', { params })
+      () => api.get('/recipes', { params }) // Dùng endpoint /recipes với param q
     ),
   
   searchUsers: (params) => api.get('/search/users', { params }),

@@ -3,6 +3,7 @@ from models.recipe_model import Recipe, Ingredient, Instruction, NutritionInfo
 from exceptions.exceptions import ErrorCode
 from datetime import datetime, timedelta
 import mongoengine
+from mongoengine import Q
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,18 +20,31 @@ def get_recipes():
         categoryId = request.args.get('categoryId')
         sort = request.args.get('sort', 'newest')
         difficulty = request.args.get('difficulty')
+        search_query = request.args.get('q')  # Thêm hỗ trợ search
         page = int(request.args.get('page', 1))
         limit = int(request.args.get('limit', 10))
 
         query = Recipe.objects()
         if categoryId: query = query.filter(category_id=categoryId)
         if difficulty: query = query.filter(difficulty=difficulty)
+        
+        # Tìm kiếm theo title, description, ingredients
+        if search_query:
+            # MongoDB text search - tìm trong title, description, và name của ingredients
+            query = query.filter(
+                Q(title__icontains=search_query) |
+                Q(description__icontains=search_query) |
+                Q(ingredients__name__icontains=search_query)
+            )
 
         # Sắp xếp
         if sort == 'newest': query = query.order_by('-createdAt')
         elif sort == 'oldest': query = query.order_by('createdAt')
         elif sort == 'most_viewed': query = query.order_by('-viewsCount')
         elif sort == 'most_liked': query = query.order_by('-favoritesCount')
+        elif sort == 'relevance' and search_query:
+            # Khi có search, sort theo relevance (giữ nguyên thứ tự MongoDB)
+            pass  # MongoDB đã sort theo relevance khi dùng $regex
         
         total_items = query.count()
         total_pages = (total_items + limit - 1) // limit

@@ -15,8 +15,24 @@ def get_recommendations():
         limit = int(request.args.get('limit', 10))
         medical_record_id = request.args.get('medicalRecordId')
         
+        user_id = g.user_id
+        print(f"📋 [Recommendation] Fetching recommendations for user: {user_id}, page: {page}, limit: {limit}")
+        print(f"📋 [Recommendation] User ID type: {type(user_id)}, value: {repr(user_id)}")
+        if medical_record_id:
+            print(f"📋 [Recommendation] Filtering by medicalRecordId: {medical_record_id}")
+        
         # Gọi Model để lấy dữ liệu
-        data, total = rec_model.find_all(g.user_id, page, limit, medical_record_id)
+        data, total = rec_model.find_all(user_id, page, limit, medical_record_id)
+        
+        print(f"✅ [Recommendation] Found {total} recommendations, returning {len(data)} items")
+        if len(data) > 0:
+            print(f"📋 [Recommendation] First recommendation userId: {data[0].get('userId')}")
+        else:
+            # Debug: Tìm tất cả recommendations để xem có gì
+            from models.recommendation_model import RecommendationModel
+            temp_model = RecommendationModel()
+            all_docs = list(temp_model.collection.find({}, {"userId": 1, "medicalRecordId": 1, "createdAt": 1}).limit(5))
+            print(f"📋 [Recommendation] DEBUG: Sample docs in DB (first 5): {[{'userId': str(d.get('userId')), 'recordId': str(d.get('medicalRecordId'))} for d in all_docs]}")
         
         return jsonify({
             "data": data,
