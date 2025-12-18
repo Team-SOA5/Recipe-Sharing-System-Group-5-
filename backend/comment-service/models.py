@@ -69,7 +69,8 @@ class User(db.Model):
 class Comment(db.Model):
     __tablename__ = 'comments'
     id = db.Column(db.String(255), primary_key=True)
-    recipe_id = db.Column(db.String(255), unique=True)
+    # Một recipe có thể có nhiều comment, không nên unique
+    recipe_id = db.Column(db.String(255), index=True)
     content = db.Column(db.String(255))
     author = db.Column(db.String(255)) # User.id
     images = db.Column(db.LargeBinary) # actually a list[str] underneath!
@@ -106,16 +107,20 @@ class Comment(db.Model):
 
 class Rating(db.Model):
     __tablename__ = 'ratings'
+    # primary key riêng cho rating
     id = db.Column(db.String(255), primary_key=True)
+    # liên kết tới recipe
+    recipe_id = db.Column(db.String(255), nullable=False)
     rating = db.Column(db.Integer)
     review = db.Column(db.String(255))
     author = db.Column(db.String(255))
     created_at = db.Column(db.DateTime)
     updated_at = db.Column(db.DateTime)
 
-    def __init__(self, id: str | None, rating: int, review: str, author: str,
+    def __init__(self, id: str | None, recipe_id: str, rating: int, review: str, author: str,
                  created_at: datetime, updated_at: datetime):
         self.id = id
+        self.recipe_id = recipe_id
         self.rating = rating
         self.review = review
         self.author = author

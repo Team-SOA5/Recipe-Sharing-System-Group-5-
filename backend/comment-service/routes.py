@@ -1,4 +1,6 @@
 from flask import Blueprint, request, jsonify, g
+from datetime import datetime
+import pickle
 
 from helpers import make_random_string
 from repositories import *
@@ -32,8 +34,11 @@ def post_comment_of_recipe(recipe_id: str):
     queries = request.args
     body = request.get_json()
     content: str = body['content']
-    images: list[str] = body['images']
-    author_id: str = g.get('user_id')
+    # FE có thể không gửi images, default là danh sách rỗng
+    images: list[str] = body.get('images', [])
+    # Service này không có middleware JWT nên g.user_id thường là None.
+    # Ưu tiên dùng user_id nếu gateway/Service khác set, fallback theo body hoặc anonymous.
+    author_id: str = g.get('user_id') or body.get('authorId') or body.get('author') or 'anonymous'
     now = datetime.now()
     comment_id = make_random_string(16)
 
@@ -49,9 +54,19 @@ def update_comment(comment_id: str):
     queries = request.args
     body = request.get_json()
     comment = CommentRepository.get_by_id(comment_id)
-    comment.content = body['content']
-    comment.author = body['author']
-    comment.images = pickle.dumps(body['images'])
+    if not comment:
+        return jsonify({'message': 'Comment not found'}), 404
+
+    # Cập nhật nội dung nếu truyền lên
+    if 'content' in body:
+        comment.content = body['content']
+
+    # Nếu FE không gửi author/images thì giữ nguyên giá trị cũ
+    if 'author' in body:
+        comment.author = body['author']
+    if 'images' in body:
+        comment.images = pickle.dumps(body['images'] or [])
+
     comment.updated_at = datetime.now()
     CommentRepository.save(comment)
     return jsonify(comment.to_dict()), 200
@@ -93,10 +108,14 @@ def post_ratings_of_recipe(recipe_id: str):
     queries = request.args
     body = request.get_json()
     rating: int = body['rating'] # TODO: Constrain down to [1, 5]!
-    review: str = body['review']
-    author_id: str = g.get('user_id')
+    # FE hiện chỉ gửi rating, nên review là optional
+    review: str = body.get('review', '')
+    # Lấy authorId từ JWT (nếu có) hoặc từ body
+    author_id: str = g.get('user_id') or body.get('authorId') or body.get('author') or 'anonymous'
     created_at: datetime = datetime.now()
-    result = Rating(recipe_id, rating, review, author_id, created_at, created_at)
+    # id sẽ là random string, recipe_id truyền riêng
+    rating_id = make_random_string(16)
+    result = Rating(rating_id, recipe_id, rating, review, author_id, created_at, created_at)
     RatingRepository.save(result)
     return jsonify(RatingRepository.get_by_author_id_and_recipe_id(author_id, recipe_id).to_dict()), 200
 
@@ -105,6 +124,9 @@ def post_ratings_of_recipe(recipe_id: str):
 def get_my_ratings_of_recipe(recipe_id: str):
     user_id = g.get('user_id')
     result = RatingRepository.get_by_author_id_and_recipe_id(user_id, recipe_id)
+    if not result:
+        # Chưa có rating nào của user cho recipe này
+        return jsonify({}), 200
     return jsonify(result.to_dict()), 200
 
 
@@ -113,13 +135,22 @@ def put_my_ratings_of_recipe(recipe_id: str):
     queries = request.args
     body = request.get_json()
     rating: int = body['rating']  # TODO: Constrain down to [1, 5]!
-    review: str = body['review']
-    author_id: str = g.get('user_id')
+    # review optional
+    review: str = body.get('review', '')
+    author_id: str = g.get('user_id') or body.get('authorId') or body.get('author') or 'anonymous'
     updated_at: datetime = datetime.now()
     result = RatingRepository.get_by_author_id_and_recipe_id(author_id, recipe_id)
-    result.rating = rating
-    result.review = review
-    result.updated_at = updated_at
+
+    # Nếu chưa có rating trước đó, tạo mới luôn (giống POST)
+    if not result:
+        rating_id = make_random_string(16)
+        created_at: datetime = datetime.now()
+        result = Rating(rating_id, recipe_id, rating, review, author_id, created_at, updated_at)
+    else:
+        result.rating = rating
+        result.review = review
+        result.updated_at = updated_at
+
     RatingRepository.save(result)
     return jsonify(result.to_dict()), 200
 
