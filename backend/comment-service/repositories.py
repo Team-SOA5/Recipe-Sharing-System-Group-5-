@@ -110,3 +110,65 @@ class RecipeRepository:
     def save(recipe: Recipe):
         db.session.add(recipe)
         db.session.commit()
+
+
+class FollowInfoRepository:
+    @staticmethod
+    def save(follow_info: FollowInfo):
+        db.session.add(follow_info)
+        db.session.commit()
+
+    @staticmethod
+    def delete(follow_info: FollowInfo):
+        db.session.delete(follow_info)
+        db.session.commit()
+
+    @staticmethod
+    def get_by_id(follower_followed_id_pair: tuple[str, str]) -> FollowInfo | None:
+        result = FollowInfo.query.get(follower_followed_id_pair)
+        return result
+
+    @staticmethod
+    def is_followed_by(followed_id: str, follower_id: str) -> bool:
+        return FollowInfoRepository.get_by_id((followed_id, follower_id)) is not None
+
+    @staticmethod
+    def get_by_follower_id(id: str, page: int, per_page: int) -> list[FollowInfo]:
+        paginated = FollowInfo.query.all().paginate(
+            page=page, per_page=per_page, error_out=False)
+
+        result: list[FollowInfo] = paginated.items
+        return [f for f in result if f.follower_id == id]
+
+    @staticmethod
+    def get_by_followed_id(id: str, page: int, per_page: int) -> list[FollowInfo]:
+        paginated = FollowInfo.query.all().paginate(
+            page=page, per_page=per_page, error_out=False)
+
+        result: list[FollowInfo] = paginated.items
+        return [f for f in result if f.followed_id == id]
+
+    @staticmethod
+    def all() -> list[FollowInfo]:
+        return FollowInfo.query.all()
+
+
+class FavoriteRecipeInfoRepository:
+    @staticmethod
+    def save(favorite_recipe_info: FavoriteRecipeInfo):
+        db.session.add(favorite_recipe_info)
+        db.session.commit()
+
+    @staticmethod
+    def delete(favorite_recipe_info: FavoriteRecipeInfo):
+        db.session.delete(favorite_recipe_info)
+        db.session.commit()
+
+    @staticmethod
+    def get_by_id(recipe_user_id_pair: tuple[str, str]) -> FavoriteRecipeInfo | None:
+        result: FavoriteRecipeInfo | None = FavoriteRecipeInfo.query.get(recipe_user_id_pair)
+        return result
+
+    @staticmethod
+    def is_recipe_favorited_by(recipe_id: str, user_id: str) -> bool:
+        return FavoriteRecipeInfoRepository.get_by_id((recipe_id, user_id)) is not None

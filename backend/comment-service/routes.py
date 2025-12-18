@@ -1,4 +1,6 @@
+import requests
 from flask import Blueprint, request, jsonify, g
+from requests import RequestException
 
 from helpers import make_random_string
 from repositories import *
@@ -8,12 +10,59 @@ bp = Blueprint('socials', __name__)
 
 
 def __get_current_user_id() -> str | None:
-    return g.get('user_id')
+    return g.user_id
 
 
-def __get_current_user() -> User | None:
-    user_id = __get_current_user_id()
-    return User.query.get(user_id) if user_id else None
+def __get_current_user():
+    path = f"https://localhost:8081/api/users/me"
+
+    try:
+        result: dict = requests.get(path).json()
+        return result
+    except RequestException as e:
+        return None
+
+
+def __get_user(user_id: str):
+    path = f"https://localhost:8081/api/users/{user_id}"
+
+    try:
+        result: dict = requests.get(path).json()
+        return result
+    except RequestException as e:
+        return None
+
+
+def __update_user(user: dict):
+    user_id = user['id']
+    path = f"https://localhost:8081/api/users/{user_id}"
+
+    try:
+        result: dict = requests.post(path, json=user).json()
+        return result
+    except RequestException as e:
+        return None
+
+
+def __get_recipe(recipe_id: str):
+    path = f"https://localhost:8082/api/recipes/{recipe_id}"
+
+    try:
+        result: dict = requests.get(path).json()
+        return result
+    except RequestException as e:
+        return None
+
+
+def __save_recipe(recipe: dict):
+    recipe_id = recipe['id']
+    path = f"https://localhost:8082/api/recipes/{recipe_id}"
+
+    try:
+        result: dict = requests.post(path, json=recipe).json()
+        return result
+    except RequestException as e:
+        return None
 
 
 # comments service
@@ -150,17 +199,27 @@ def get_favorite_recipes_of_me():
 
 @bp.route('/api/recipes/<recipe_id>/favorite', methods=['POST'])
 def favorite_recipe(recipe_id: str):
-    recipe = RecipeRepository.get_by_id(recipe_id)
-    recipe.set_as_favorite_of(__get_current_user_id())
-    RecipeRepository.save(recipe)
+    current_user_id = __get_current_user_id()
+    recipe = __get_recipe(recipe_id)
+
+    if not FavoriteRecipeInfoRepository.is_recipe_favorited_by(recipe_id, current_user_id):
+        FavoriteRecipeInfoRepository.save(FavoriteRecipeInfo((recipe_id, current_user_id)))
+        recipe["favoritesCount"] += 1
+        __save_recipe(recipe)
+
     return jsonify(), 200
 
 
 @bp.route('/api/recipes/<recipe_id>/favorite', methods=['DELETE'])
 def unfavorite_recipe(recipe_id: str):
-    recipe = RecipeRepository.get_by_id(recipe_id)
-    recipe.unset_as_favorite_of(__get_current_user_id())
-    RecipeRepository.save(recipe)
+    current_user_id = __get_current_user_id()
+    recipe = __get_recipe(recipe_id)
+
+    if FavoriteRecipeInfoRepository.is_recipe_favorited_by(recipe_id, current_user_id):
+        FavoriteRecipeInfoRepository.delete(FavoriteRecipeInfo((recipe_id, current_user_id)))
+        recipe["favoritesCount"] -= 1
+        __save_recipe(recipe)
+
     return jsonify(), 200
 
 
@@ -179,34 +238,39 @@ def get_followings_of_user(user_id: str):
     queries = request.args
     page: int = queries.get('page', 1)
     limit: int = queries.get('limit', 20)
-    result: list[User] = UserRepository.get_users_following(user_id, page, limit)
-    return jsonify([u.to_dict() for u in result]), 200
+    result = FollowInfoRepository.get_by_followed_id(user_id, page, limit)
+    return [jsonify(__get_user(u.follower_id)) for u in result], 200
 
 
 @bp.route('/api/users/<user_id>/follow', methods=['POST'])
 def follow_user(user_id: str):
     current_user_id = __get_current_user_id()
-    user = UserRepository.get_by_id(current_user_id)
-    user.accept_follow_by(user_id)
-    UserRepository.save(user)
+    user = __get_user(user_id)
+
+    if not FollowInfoRepository.is_followed_by(user_id, current_user_id):
+        user["followersCount"] += 1
+        __get_user(current_user_id)["followingCount"] += 1
+        FollowInfoRepository.save(FollowInfo((user_id, current_user_id)))
 
     return jsonify({
         "following": True,
-        "followersCount": user.get_followers_count() + 1
+        "followersCount": user["followersCount"]
     }), 200
 
 
 @bp.route('/api/users/<user_id>/follow', methods=['DELETE'])
 def unfollow_user(user_id: str):
     current_user_id = __get_current_user_id()
-    user = UserRepository.get_by_id(user_id)
-    user.accept_unfollow_by(current_user_id)
-    UserRepository.save(user)
+    user = __get_user(user_id)
+
+    if FollowInfoRepository.is_followed_by(user_id, current_user_id):
+        user["followersCount"] -= 1
+        __get_user(current_user_id)["followingCount"] -= 1
+        FollowInfoRepository.delete(FollowInfo((user_id, current_user_id)))
 
     return jsonify({
         "following": False,
-        "followersCount": user.get_followers_count() - 1
+        "followersCount": user["followersCount"]
     }), 200
 
 # notification service
-
