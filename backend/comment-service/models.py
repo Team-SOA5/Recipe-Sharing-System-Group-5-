@@ -106,7 +106,7 @@ class Comment(db.Model):
 
 class Rating(db.Model):
     __tablename__ = 'ratings'
-    id = db.String(255, primary_key=True)
+    id = db.Column(db.String(255), primary_key=True)
     rating = db.Column(db.Integer)
     review = db.Column(db.String(255))
     author = db.Column(db.String(255))
@@ -163,9 +163,9 @@ class Category(db.Model):
 
 class Tag(db.Model):
     __tablename__ = 'tags'
-    id = db.String(255, primary_key=True)
-    name = db.String(255)
-    recipes_count = db.Integer
+    id = db.Column(db.String(255), primary_key=True)
+    name = db.Column(db.String(255))
+    recipes_count = db.Column(db.Integer)
     created_at = db.Column(db.DateTime)
 
     def __init__(self, id: str, name: str, recipes_count: int, created_at: datetime):
@@ -185,10 +185,10 @@ class Tag(db.Model):
 
 class Recipe(db.Model):
     __tablename__ = 'recipes'
-    id = db.String(255, primary_key=True)
-    title = db.String(255)
-    description = db.String(255)
-    thumbnail = db.String(255) # Uri
+    id = db.Column(db.String(255), primary_key=True)
+    title = db.Column(db.String(255))
+    description = db.Column(db.String(255))
+    thumbnail = db.Column(db.String(255)) # Uri
     author = db.Column(db.String(255))
     category = db.Column(db.String(255))
     difficulty = db.Column(db.String(255)) # 'easy' | 'medium' | 'hard'

@@ -5,3 +5,8 @@ python-dotenv==1.0.0
 PyJWT==2.8.0
 pymongo==4.3.3
 requests==2.31.0
+flask-pymongo
+Flask-SQLAlchemy
+PyYAML
+pymysql
+cryptography

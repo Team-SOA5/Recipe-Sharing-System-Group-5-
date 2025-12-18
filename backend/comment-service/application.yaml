@@ -5,7 +5,7 @@ application:
   name: comment-service
 
 database:
-  url: "mysql+pymysql://root:_mySql.io0@localhost:3306/socials"
+  url: 'mysql+pymysql://root:12345678@localhost:3306/cookpad-identity'
   driver: "pymysql"
   echo: true
   track_modifications: false
