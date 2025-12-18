@@ -8,11 +8,11 @@ const USE_MOCK = false // Đặt false khi có backend thật
 const API_BASE_URL = 'http://localhost:8888/api/v1'
 
 // Axios instance cho API Gateway
+// KHÔNG set sẵn Content-Type, để Axios tự chọn:
+// - application/json cho body là object
+// - multipart/form-data (kèm boundary) cho FormData
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 })
 
 // Interceptor để thêm token vào header
@@ -233,10 +233,8 @@ export const authAPI = {
     try {
       const formData = new FormData()
       formData.append('avatar', file)
-      // Interceptor đã tự động extract response.data rồi
-      const result = await api.put('/users/me/avatar', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      // Không set Content-Type để browser tự thêm boundary
+      const result = await api.put('/users/me/avatar', formData)
       return result
     } catch (error) {
       throw error
@@ -277,9 +275,8 @@ export const userAPI = {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const response = await api.put('/users/me/avatar', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+      // Không set Content-Type để browser tự thêm boundary
+      const response = await api.put('/users/me/avatar', formData)
       return response
     } catch (error) {
       throw error
@@ -572,9 +569,8 @@ export const mediaAPI = {
     const formData = new FormData()
     // Theo OpenAPI spec, field name phải là 'file'
     formData.append('file', file)
-    return api.post('/media/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    // Không set Content-Type để browser tự thêm boundary
+    return api.post('/media/upload', formData)
   },
   
   batchUpload: (files) => {
@@ -583,9 +579,8 @@ export const mediaAPI = {
     files.forEach(file => {
       formData.append('files', file)
     })
-    return api.post('/media/batch-upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    // Không set Content-Type để browser tự thêm boundary
+    return api.post('/media/batch-upload', formData)
   },
 }
 
@@ -599,9 +594,8 @@ export const healthAPI = {
     formData.append('file', file)
     if (title) formData.append('title', title)
     if (notes) formData.append('notes', notes)
-    return api.post('/health/medical-records', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
+    // Không set Content-Type để browser tự thêm boundary
+    return api.post('/health/medical-records', formData)
   },
   
   getMedicalRecord: (recordId) =>

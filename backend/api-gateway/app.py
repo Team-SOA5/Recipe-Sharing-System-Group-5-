@@ -34,13 +34,20 @@ SERVICES = {
     "media-service": "http://localhost:8090",
     "recipe-service": "http://localhost:8082",
     "category-service": "http://localhost:8083",
-    "health-service": "http://localhost:8084",
-    "ai-service": "http://localhost:8092"
+    "health-service": "http://localhost:8091",
+    "ai-service": "http://localhost:8092",
+    # Comment / rating / favorite / follow service
+    # Internal routes in this service start with /api/*
+    # so we point base URL to /api and strip /api/v1 at the gateway.
+    "comment-service": "http://localhost:8085/api",
 }
 
 # Public endpoints (no authentication required)
+# - /auth/*: authentication & token issuance
+# - /media/download/*: cho phép browser tải ảnh/file công khai (avatar, image) không cần gửi Authorization header
 PUBLIC_ENDPOINTS = [
-    r"/auth/.*"
+    r"/auth/.*",
+    r"/media/download/.*"
 ]
 
 
@@ -169,7 +176,23 @@ def authentication_service(subpath):
     return proxy_request(SERVICES['authentication-service'], request.path, strip_prefix_count=2)
 
 
-# User service routes
+# Comment / rating / favorite / follow routes (Comment Service)
+@app.route(f'{API_PREFIX}/recipes/<recipe_id>/comments', methods=['GET', 'POST'])
+@app.route(f'{API_PREFIX}/comments/<comment_id>', methods=['PUT', 'DELETE'])
+@app.route(f'{API_PREFIX}/comments/<comment_id>/like', methods=['POST', 'DELETE'])
+@app.route(f'{API_PREFIX}/recipes/<recipe_id>/ratings', methods=['GET', 'POST'])
+@app.route(f'{API_PREFIX}/recipes/<recipe_id>/ratings/me', methods=['GET', 'PUT', 'DELETE'])
+@app.route(f'{API_PREFIX}/favorites', methods=['GET'])
+@app.route(f'{API_PREFIX}/recipes/<recipe_id>/favorite', methods=['POST', 'DELETE'])
+@app.route(f'{API_PREFIX}/users/<user_id>/followers', methods=['GET'])
+@app.route(f'{API_PREFIX}/users/<user_id>/following', methods=['GET'])
+@app.route(f'{API_PREFIX}/users/<user_id>/follow', methods=['POST', 'DELETE'])
+@authentication_filter
+def comment_service_handler(recipe_id=None, comment_id=None, user_id=None):
+    """Route comment/rating/favorite/follow-related requests to comment service"""
+    return proxy_request(SERVICES['comment-service'], request.path, strip_prefix_count=2)
+
+# User service routes (other user-related APIs)
 @app.route(f'{API_PREFIX}/users/<userId>/recipes', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 @authentication_filter
 def user_recipes_service(userId):
@@ -179,7 +202,7 @@ def user_recipes_service(userId):
 @app.route(f'{API_PREFIX}/users/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 @authentication_filter
 def user_service(subpath):
-    """Route requests to user service"""
+    """Route other /users/* requests to user service"""
     return proxy_request(SERVICES['user-service'], request.path, strip_prefix_count=2)
 
 

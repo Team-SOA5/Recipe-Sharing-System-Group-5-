@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { recipeAPI, commentAPI, ratingAPI } from '../services/api'
+import { recipeAPI, commentAPI, ratingAPI, userAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { FiClock, FiUsers, FiStar, FiEye, FiHeart, FiMessageCircle, FiShare2 } from 'react-icons/fi'
 import { formatDistanceToNow } from 'date-fns'
@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 
 export default function RecipeDetail() {
   const { id } = useParams()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const [recipe, setRecipe] = useState(null)
   const [comments, setComments] = useState([])
   const [ratings, setRatings] = useState(null)
@@ -16,6 +16,9 @@ export default function RecipeDetail() {
   const [loading, setLoading] = useState(true)
   const [newComment, setNewComment] = useState('')
   const [ratingValue, setRatingValue] = useState(0)
+  const [editingCommentId, setEditingCommentId] = useState(null)
+  const [editingContent, setEditingContent] = useState('')
+  const [commentToDelete, setCommentToDelete] = useState(null)
 
   useEffect(() => {
     loadRecipe()
@@ -30,28 +33,113 @@ export default function RecipeDetail() {
       const recipeData = await recipeAPI.getRecipe(id)
       console.log('Recipe data:', recipeData)
       setRecipe(recipeData)
+
+      // Sidebar thống kê đánh giá: dùng số liệu tổng hợp từ recipe-service
+      setRatings({
+        averageRating: recipeData.averageRating || 0,
+        totalRatings: recipeData.ratingsCount || 0,
+      })
       
-      // Load comments and ratings separately with error handling
-      // So if one fails, the other can still work
+      // Load comments riêng với error handling
       try {
         const commentsData = await commentAPI.getComments(id)
         console.log('Comments data:', commentsData)
-        setComments(Array.isArray(commentsData) ? commentsData : (commentsData?.data || []))
+
+        const normalizeComments = async (raw) => {
+          if (!Array.isArray(raw)) return []
+
+          // Thu thập danh sách authorId dạng string
+          const authorIds = Array.from(
+            new Set(
+              raw
+                .map((c) => (typeof c.author === 'string' ? c.author : null))
+                .filter((id) => id && id !== 'anonymous')
+            )
+          )
+
+          // Gọi user-service để lấy profile cho từng authorId (trừ current user đã có sẵn)
+          const profileMap = {}
+          await Promise.allSettled(
+            authorIds.map(async (authorId) => {
+              try {
+                // Nếu là current user thì dùng context
+                if (
+                  user &&
+                  (authorId === user.id ||
+                    authorId === user.userId ||
+                    authorId === user._id)
+                ) {
+                  profileMap[authorId] = user
+                  return
+                }
+                const profile = await userAPI.getUser(authorId)
+                profileMap[authorId] = profile
+              } catch (e) {
+                // Nếu lỗi thì để trống, sẽ fallback avatar/name mặc định
+                console.warn('Failed to load author profile for', authorId, e)
+              }
+            })
+          )
+
+          return raw.map((c) => {
+            let authorObj = c.author
+
+            if (typeof c.author === 'string') {
+              const authorId = c.author
+              const profile = profileMap[authorId]
+
+              if (profile) {
+                authorObj = {
+                  id: profile.id || profile.userId || authorId,
+                  fullName: profile.fullName || 'Người dùng',
+                  avatar:
+                    profile.avatar ||
+                    'https://ui-avatars.com/api/?name=' +
+                      encodeURIComponent(profile.fullName || 'User'),
+                }
+              } else if (
+                user &&
+                (authorId === user.id ||
+                  authorId === user.userId ||
+                  authorId === user._id)
+              ) {
+                authorObj = {
+                  id: user.id || user.userId || authorId,
+                  fullName: user.fullName || 'Bạn',
+                  avatar:
+                    user.avatar ||
+                    'https://ui-avatars.com/api/?name=' +
+                      encodeURIComponent(user.fullName || 'User'),
+                }
+              } else {
+                authorObj = {
+                  id: authorId,
+                  fullName: 'Người dùng',
+                  avatar: 'https://ui-avatars.com/api/?name=User',
+                }
+              }
+            }
+
+            return {
+              id: c.id,
+              content: c.content,
+              images: c.images || [],
+              createdAt: c.createdAt || c.created_at,
+              author: authorObj,
+            }
+          })
+        }
+
+        const normalized = await normalizeComments(commentsData)
+        setComments(normalized)
       } catch (commentError) {
         console.warn('Failed to load comments:', commentError)
         setComments([]) // Set empty array on error
         // Don't show error toast for comments, as they might not be implemented yet
       }
-      
-      try {
-        const ratingsData = await ratingAPI.getRatings(id)
-        console.log('Ratings data:', ratingsData)
-        setRatings(ratingsData || { averageRating: 0, totalRatings: 0 })
-      } catch (ratingError) {
-        console.warn('Failed to load ratings:', ratingError)
-        setRatings({ averageRating: 0, totalRatings: 0 }) // Set default on error
-        // Don't show error toast for ratings, as they might not be implemented yet
-      }
+
+      // Không dùng list rating từ comment-service cho thống kê tổng,
+      // vì recipe-service đã có sẵn averageRating + ratingsCount chuẩn.
       
       if (isAuthenticated) {
         try {
@@ -91,17 +179,224 @@ export default function RecipeDetail() {
     if (!newComment.trim()) return
 
     try {
-      const comment = await commentAPI.createComment(id, { content: newComment })
+      const payload = {
+        content: newComment,
+        authorId: user?.id || user?.userId || user?._id,
+      }
+      const comment = await commentAPI.createComment(id, payload)
       console.log('Created comment:', comment)
-      // Reload comments instead of manually adding to ensure consistency
+      // Reload comments instead of manually adding để thống nhất với backend comment-service
       const commentsData = await commentAPI.getComments(id)
-      setComments(Array.isArray(commentsData) ? commentsData : (commentsData?.data || []))
+
+      const normalizeComments = async (raw) => {
+        if (!Array.isArray(raw)) return []
+
+        const authorIds = Array.from(
+          new Set(
+            raw
+              .map((c) => (typeof c.author === 'string' ? c.author : null))
+              .filter((id) => id && id !== 'anonymous')
+          )
+        )
+
+        const profileMap = {}
+        await Promise.allSettled(
+          authorIds.map(async (authorId) => {
+            try {
+              if (
+                user &&
+                (authorId === user.id ||
+                  authorId === user.userId ||
+                  authorId === user._id)
+              ) {
+                profileMap[authorId] = user
+                return
+              }
+              const profile = await userAPI.getUser(authorId)
+              profileMap[authorId] = profile
+            } catch (e) {
+              console.warn('Failed to load author profile for', authorId, e)
+            }
+          })
+        )
+
+        return raw.map((c) => {
+          let authorObj = c.author
+
+          if (typeof c.author === 'string') {
+            const authorId = c.author
+            const profile = profileMap[authorId]
+
+            if (profile) {
+              authorObj = {
+                id: profile.id || profile.userId || authorId,
+                fullName: profile.fullName || 'Người dùng',
+                avatar:
+                  profile.avatar ||
+                  'https://ui-avatars.com/api/?name=' +
+                    encodeURIComponent(profile.fullName || 'User'),
+              }
+            } else if (
+              user &&
+              (authorId === user.id ||
+                authorId === user.userId ||
+                authorId === user._id)
+            ) {
+              authorObj = {
+                id: user.id || user.userId || authorId,
+                fullName: user.fullName || 'Bạn',
+                avatar:
+                  user.avatar ||
+                  'https://ui-avatars.com/api/?name=' +
+                    encodeURIComponent(user.fullName || 'User'),
+              }
+            } else {
+              authorObj = {
+                id: authorId,
+                fullName: 'Người dùng',
+                avatar: 'https://ui-avatars.com/api/?name=User',
+              }
+            }
+          }
+
+          return {
+            id: c.id,
+            content: c.content,
+            images: c.images || [],
+            createdAt: c.createdAt || c.created_at,
+            author: authorObj,
+          }
+        })
+      }
+
+      const normalized = await normalizeComments(commentsData)
+      setComments(normalized)
       setNewComment('')
       toast.success('Đã thêm bình luận')
     } catch (error) {
       console.error('Error creating comment:', error)
       const errorMessage = error.response?.data?.message || 'Không thể thêm bình luận'
       toast.error(errorMessage)
+    }
+  }
+
+  const handleStartEditComment = (comment) => {
+    setEditingCommentId(comment.id)
+    setEditingContent(comment.content)
+  }
+
+  const handleCancelEditComment = () => {
+    setEditingCommentId(null)
+    setEditingContent('')
+  }
+
+  const handleUpdateComment = async (commentId) => {
+    if (!editingContent.trim()) return
+    try {
+      await commentAPI.updateComment(commentId, { content: editingContent })
+
+      // Reload comments sau khi cập nhật
+      const commentsData = await commentAPI.getComments(id)
+      const normalizeComments = async (raw) => {
+        if (!Array.isArray(raw)) return []
+
+        const authorIds = Array.from(
+          new Set(
+            raw
+              .map((c) => (typeof c.author === 'string' ? c.author : null))
+              .filter((aid) => aid && aid !== 'anonymous')
+          )
+        )
+
+        const profileMap = {}
+        await Promise.allSettled(
+          authorIds.map(async (authorId) => {
+            try {
+              if (
+                user &&
+                (authorId === user.id ||
+                  authorId === user.userId ||
+                  authorId === user._id)
+              ) {
+                profileMap[authorId] = user
+                return
+              }
+              const profile = await userAPI.getUser(authorId)
+              profileMap[authorId] = profile
+            } catch (e) {
+              console.warn('Failed to load author profile for', authorId, e)
+            }
+          })
+        )
+
+        return raw.map((c) => {
+          let authorObj = c.author
+
+          if (typeof c.author === 'string') {
+            const authorId = c.author
+            const profile = profileMap[authorId]
+
+            if (profile) {
+              authorObj = {
+                id: profile.id || profile.userId || authorId,
+                fullName: profile.fullName || 'Người dùng',
+                avatar:
+                  profile.avatar ||
+                  'https://ui-avatars.com/api/?name=' +
+                    encodeURIComponent(profile.fullName || 'User'),
+              }
+            } else if (
+              user &&
+              (authorId === user.id ||
+                authorId === user.userId ||
+                authorId === user._id)
+            ) {
+              authorObj = {
+                id: user.id || user.userId || authorId,
+                fullName: user.fullName || 'Bạn',
+                avatar:
+                  user.avatar ||
+                  'https://ui-avatars.com/api/?name=' +
+                    encodeURIComponent(user.fullName || 'User'),
+              }
+            } else {
+              authorObj = {
+                id: authorId,
+                fullName: 'Người dùng',
+                avatar: 'https://ui-avatars.com/api/?name=User',
+              }
+            }
+          }
+
+          return {
+            id: c.id,
+            content: c.content,
+            images: c.images || [],
+            createdAt: c.createdAt || c.created_at,
+            author: authorObj,
+          }
+        })
+      }
+
+      const normalized = await normalizeComments(commentsData)
+      setComments(normalized)
+      setEditingCommentId(null)
+      setEditingContent('')
+      toast.success('Đã cập nhật bình luận')
+    } catch (error) {
+      console.error('Error updating comment:', error)
+      toast.error('Không thể cập nhật bình luận')
+    }
+  }
+
+  const handleDeleteComment = async (commentId) => {
+    try {
+      await commentAPI.deleteComment(commentId)
+      setComments((prev) => prev.filter((c) => c.id !== commentId))
+      toast.success('Đã xóa bình luận')
+    } catch (error) {
+      console.error('Error deleting comment:', error)
+      toast.error('Không thể xóa bình luận')
     }
   }
 
@@ -113,13 +408,46 @@ export default function RecipeDetail() {
     if (ratingValue === 0) return
 
     try {
-      if (myRating) {
-        await ratingAPI.updateRating(id, { rating: ratingValue })
-      } else {
-        await ratingAPI.createRating(id, { rating: ratingValue })
+      const payload = {
+        rating: ratingValue,
+        authorId: user?.id || user?.userId || user?._id,
       }
+
+      if (myRating) {
+        await ratingAPI.updateRating(id, payload)
+      } else {
+        await ratingAPI.createRating(id, payload)
+      }
+
+      // Cập nhật lại thống kê rating trên UI (average + count)
+      setMyRating({ ...(myRating || {}), rating: ratingValue })
+      setRatings((prev) => {
+        const prevAvg = prev?.averageRating || 0
+        const prevCount = prev?.totalRatings || 0
+
+        let newAvg = prevAvg
+        let newCount = prevCount
+
+        if (myRating && typeof myRating.rating === 'number') {
+          // User đã có rating trước đó: thay thế điểm cũ bằng điểm mới
+          newCount = prevCount || 1
+          newAvg =
+            newCount === 0
+              ? ratingValue
+              : (prevAvg * newCount - myRating.rating + ratingValue) / newCount
+        } else {
+          // User rating lần đầu: tăng tổng số đánh giá lên 1
+          newCount = prevCount + 1
+          newAvg =
+            newCount === 0
+              ? ratingValue
+              : (prevAvg * prevCount + ratingValue) / newCount
+        }
+
+        return { averageRating: newAvg, totalRatings: newCount }
+      })
+
       toast.success('Đã gửi đánh giá')
-      loadRecipe()
     } catch (error) {
       toast.error('Không thể gửi đánh giá')
     }
@@ -135,6 +463,17 @@ export default function RecipeDetail() {
 
   if (!recipe) {
     return <div className="text-center py-12">Không tìm thấy công thức</div>
+  }
+
+  const formatCommentTime = (createdAt) => {
+    if (!createdAt) return ''
+    const date = new Date(createdAt)
+    if (Number.isNaN(date.getTime())) {
+      // Backend comment-service đang trả "18-12-2025 20:25:02" -> JS Date không parse được
+      // Hiển thị raw string để tránh làm crash UI
+      return createdAt
+    }
+    return formatDistanceToNow(date, { addSuffix: true })
   }
 
   return (
@@ -303,18 +642,44 @@ export default function RecipeDetail() {
                 <div key={comment.id} className="border-b border-gray-200 pb-4 last:border-0">
                   <div className="flex items-start space-x-3">
                     <img
-                      src={comment.author.avatar}
-                      alt={comment.author.fullName}
+                      src={comment.author?.avatar || 'https://ui-avatars.com/api/?name=User'}
+                      alt={comment.author?.fullName || 'Người dùng'}
                       className="w-10 h-10 rounded-full"
                     />
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-1">
-                        <span className="font-medium">{comment.author.fullName}</span>
+                        <span className="font-medium">{comment.author?.fullName || 'Người dùng'}</span>
                         <span className="text-sm text-gray-500">
-                          {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                          {formatCommentTime(comment.createdAt)}
                         </span>
                       </div>
-                      <p className="text-gray-700">{comment.content}</p>
+                      {editingCommentId === comment.id ? (
+                        <div className="space-y-2 mt-1">
+                          <textarea
+                            className="input-field w-full h-20"
+                            value={editingContent}
+                            onChange={(e) => setEditingContent(e.target.value)}
+                          />
+                          <div className="flex space-x-2">
+                            <button
+                              type="button"
+                              className="btn-primary"
+                              onClick={() => handleUpdateComment(comment.id)}
+                            >
+                              Lưu
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-secondary"
+                              onClick={handleCancelEditComment}
+                            >
+                              Hủy
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-700">{comment.content}</p>
+                      )}
                       {comment.images && comment.images.length > 0 && (
                         <div className="mt-2 flex space-x-2">
                           {comment.images.map((img, idx) => (
@@ -322,6 +687,29 @@ export default function RecipeDetail() {
                           ))}
                         </div>
                       )}
+
+                      {isAuthenticated &&
+                        user &&
+                        (comment.author?.id === user.id ||
+                          comment.author?.id === user.userId ||
+                          comment.author?.id === user._id) && (
+                          <div className="flex space-x-3 mt-2 text-sm">
+                            <button
+                              type="button"
+                              className="text-primary-600 hover:underline"
+                              onClick={() => handleStartEditComment(comment)}
+                            >
+                              Chỉnh sửa
+                            </button>
+                            <button
+                              type="button"
+                              className="text-red-600 hover:underline"
+                              onClick={() => setCommentToDelete(comment)}
+                            >
+                              Xóa
+                            </button>
+                          </div>
+                        )}
                     </div>
                   </div>
                 </div>
@@ -361,7 +749,7 @@ export default function RecipeDetail() {
               <h3 className="font-bold mb-4">Đánh giá</h3>
               <div className="text-center mb-4">
                 <div className="text-4xl font-bold text-primary-600">
-                  {ratings.averageRating.toFixed(1)}
+                  {Number(ratings.averageRating || 0).toFixed(1)}
                 </div>
                 <div className="flex items-center justify-center space-x-1 text-yellow-500">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -372,7 +760,7 @@ export default function RecipeDetail() {
                   ))}
                 </div>
                 <p className="text-sm text-gray-500 mt-1">
-                  {ratings.totalRatings} đánh giá
+                  {ratings.totalRatings || 0} đánh giá
                 </p>
               </div>
             </div>
@@ -399,6 +787,37 @@ export default function RecipeDetail() {
           </div>
         </div>
       </div>
+
+      {commentToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-lg shadow-lg max-w-sm w-full p-6">
+            <h3 className="text-lg font-semibold mb-2">Xác nhận xóa bình luận</h3>
+            <p className="text-sm text-gray-700 mb-4">
+              Bạn có chắc chắn muốn xóa bình luận này? Hành động này không thể hoàn tác.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setCommentToDelete(null)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="btn-primary bg-orange-500 hover:bg-orange-600 border-orange-500"
+                onClick={async () => {
+                  const id = commentToDelete.id
+                  setCommentToDelete(null)
+                  await handleDeleteComment(id)
+                }}
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
