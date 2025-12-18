@@ -17,7 +17,7 @@ def __get_current_user() -> User | None:
 
 
 # comments service
-@bp.route('/api/v1/recipes/<recipe_id>/comments', methods=['GET'])
+@bp.route('/api/recipes/<recipe_id>/comments', methods=['GET'])
 def get_comments_of_recipe(recipe_id: str):
     queries = request.args
     page = int(queries.get('page', 1))
@@ -27,7 +27,7 @@ def get_comments_of_recipe(recipe_id: str):
     return jsonify([c.to_dict() for c in comments]), 200
 
 
-@bp.route('/api/v1/recipes/<recipe_id>/comments', methods=['POST'])
+@bp.route('/api/recipes/<recipe_id>/comments', methods=['POST'])
 def post_comment_of_recipe(recipe_id: str):
     queries = request.args
     body = request.get_json()
@@ -44,7 +44,7 @@ def post_comment_of_recipe(recipe_id: str):
     return jsonify(comment.to_dict()), 200
 
 
-@bp.route('/api/v1/comments/<comment_id>', methods=['PUT'])
+@bp.route('/api/comments/<comment_id>', methods=['PUT'])
 def update_comment(comment_id: str):
     queries = request.args
     body = request.get_json()
@@ -57,13 +57,13 @@ def update_comment(comment_id: str):
     return jsonify(comment.to_dict()), 200
 
 
-@bp.route('/api/v1/comments/<comment_id>', methods=['DELETE'])
+@bp.route('/api/comments/<comment_id>', methods=['DELETE'])
 def delete_comment(comment_id: str):
     CommentRepository.delete(CommentRepository.get_by_id(comment_id))
     return jsonify(), 200
 
 
-@bp.route('/api/v1/comments/<comment_id>/like', methods=['POST'])
+@bp.route('/api/comments/<comment_id>/like', methods=['POST'])
 def like_comment(comment_id: str):
     comment = CommentRepository.get_by_id(comment_id)
     comment.is_liked = True
@@ -72,7 +72,7 @@ def like_comment(comment_id: str):
     return jsonify({ "liked": True, "likesCount": comment.likes_count }), 200
 
 
-@bp.route('/api/v1/comments/<comment_id>/like', methods=['DELETE'])
+@bp.route('/api/comments/<comment_id>/like', methods=['DELETE'])
 def unlike_comment(comment_id: str):
     comment = CommentRepository.get_by_id(comment_id)
     comment.is_liked = False
@@ -82,13 +82,13 @@ def unlike_comment(comment_id: str):
 
 
 # ratings service
-@bp.route('/api/v1/recipes/<recipe_id>/ratings', methods=['GET'])
+@bp.route('/api/recipes/<recipe_id>/ratings', methods=['GET'])
 def get_ratings_of_recipe(recipe_id: str):
     ratings = RatingRepository.get_all_of_recipe_id(recipe_id)
     return jsonify([r.to_dict() for r in ratings]), 200
 
 
-@bp.route('/api/v1/recipes/<recipe_id>/ratings', methods=['POST'])
+@bp.route('/api/recipes/<recipe_id>/ratings', methods=['POST'])
 def post_ratings_of_recipe(recipe_id: str):
     queries = request.args
     body = request.get_json()
@@ -101,14 +101,14 @@ def post_ratings_of_recipe(recipe_id: str):
     return jsonify(RatingRepository.get_by_author_id_and_recipe_id(author_id, recipe_id).to_dict()), 200
 
 
-@bp.route('/api/v1/recipes/<recipe_id>/ratings/me', methods=['GET'])
+@bp.route('/api/recipes/<recipe_id>/ratings/me', methods=['GET'])
 def get_my_ratings_of_recipe(recipe_id: str):
     user_id = g.get('user_id')
     result = RatingRepository.get_by_author_id_and_recipe_id(user_id, recipe_id)
     return jsonify(result.to_dict()), 200
 
 
-@bp.route('/api/v1/recipes/<recipe_id>/ratings/me', methods=['PUT'])
+@bp.route('/api/recipes/<recipe_id>/ratings/me', methods=['PUT'])
 def put_my_ratings_of_recipe(recipe_id: str):
     queries = request.args
     body = request.get_json()
@@ -124,7 +124,7 @@ def put_my_ratings_of_recipe(recipe_id: str):
     return jsonify(result.to_dict()), 200
 
 
-@bp.route('/api/v1/recipes/<recipe_id>/ratings/me', methods=['DELETE'])
+@bp.route('/api/recipes/<recipe_id>/ratings/me', methods=['DELETE'])
 def delete_my_ratings_of_recipe(recipe_id: str):
     author_id = g.get('user_id')
     rating = RatingRepository.get_by_author_id_and_recipe_id(author_id, recipe_id)
@@ -133,7 +133,7 @@ def delete_my_ratings_of_recipe(recipe_id: str):
 
 
 # favorites service
-@bp.route('/api/v1/users/<user_id>/favorites', methods=['DELETE'])
+@bp.route('/api/users/<user_id>/favorites', methods=['DELETE'])
 def get_favorite_recipes_of_user(user_id: str):
     queries = request.args
     body = request.get_json()
@@ -143,12 +143,12 @@ def get_favorite_recipes_of_user(user_id: str):
     return jsonify([r.to_dict_for(user_id) for r in recipes]), 200
 
 
-@bp.route('/api/v1/favorites', methods=['GET'])
+@bp.route('/api/favorites', methods=['GET'])
 def get_favorite_recipes_of_me():
     return get_favorite_recipes_of_user(__get_current_user_id())
 
 
-@bp.route('/api/v1/recipes/<recipe_id>/favorite', methods=['POST'])
+@bp.route('/api/recipes/<recipe_id>/favorite', methods=['POST'])
 def favorite_recipe(recipe_id: str):
     recipe = RecipeRepository.get_by_id(recipe_id)
     recipe.set_as_favorite_of(__get_current_user_id())
@@ -156,7 +156,7 @@ def favorite_recipe(recipe_id: str):
     return jsonify(), 200
 
 
-@bp.route('/api/v1/recipes/<recipe_id>/favorite', methods=['DELETE'])
+@bp.route('/api/recipes/<recipe_id>/favorite', methods=['DELETE'])
 def unfavorite_recipe(recipe_id: str):
     recipe = RecipeRepository.get_by_id(recipe_id)
     recipe.unset_as_favorite_of(__get_current_user_id())
@@ -165,7 +165,7 @@ def unfavorite_recipe(recipe_id: str):
 
 
 # follow service
-@bp.route('/api/v1/users/<user_id>/followers', methods=['GET'])
+@bp.route('/api/users/<user_id>/followers', methods=['GET'])
 def get_followers_of_user(user_id: str):
     queries = request.args
     page: int = queries.get('page', 1)
@@ -174,7 +174,7 @@ def get_followers_of_user(user_id: str):
     return jsonify([u.to_dict() for u in result]), 200
 
 
-@bp.route('/api/v1/users/<user_id>/followers', methods=['GET'])
+@bp.route('/api/users/<user_id>/followers', methods=['GET'])
 def get_followings_of_user(user_id: str):
     queries = request.args
     page: int = queries.get('page', 1)
@@ -183,7 +183,7 @@ def get_followings_of_user(user_id: str):
     return jsonify([u.to_dict() for u in result]), 200
 
 
-@bp.route('/api/v1/users/<user_id>/follow', methods=['POST'])
+@bp.route('/api/users/<user_id>/follow', methods=['POST'])
 def follow_user(user_id: str):
     current_user_id = __get_current_user_id()
     user = UserRepository.get_by_id(current_user_id)
@@ -196,7 +196,7 @@ def follow_user(user_id: str):
     }), 200
 
 
-@bp.route('/api/v1/users/<user_id>/follow', methods=['DELETE'])
+@bp.route('/api/users/<user_id>/follow', methods=['DELETE'])
 def unfollow_user(user_id: str):
     current_user_id = __get_current_user_id()
     user = UserRepository.get_by_id(user_id)
@@ -209,3 +209,4 @@ def unfollow_user(user_id: str):
     }), 200
 
 # notification service
+
