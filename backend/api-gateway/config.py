@@ -29,7 +29,9 @@ class Config:
     CORS_ORIGINS = '*'
     CORS_METHODS = '*'
     CORS_HEADERS = '*'
-
+    CACHE_TYPE = 'SimpleCache'  
+    CACHE_DEFAULT_TIMEOUT = 300 
+    CACHE_THRESHOLD = 1000      
 
 class DevelopmentConfig(Config):
     """Development configuration"""

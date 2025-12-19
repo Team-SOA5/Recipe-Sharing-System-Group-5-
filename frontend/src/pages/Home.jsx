@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { recipeAPI, categoryAPI } from '../services/api'
+import { recipeAPI, categoryAPI, userAPI } from '../services/api'
 import RecipeCard from '../components/RecipeCard'
 import { FiFilter, FiTrendingUp } from 'react-icons/fi'
 import toast from 'react-hot-toast'
@@ -38,7 +38,56 @@ export default function Home() {
       ])
       // Recipes trả về { data: [...], pagination: {...} }
       console.log('Recipes data:', recipesData)
-      const recipesList = recipesData?.data || recipesData || []
+      let recipesList = recipesData?.data || recipesData || []
+      
+      // Fetch author info cho tất cả recipes
+      const authorIds = Array.from(new Set(recipesList.map(r => r.author?.id).filter(Boolean)))
+      if (authorIds.length > 0) {
+        const authorProfiles = await Promise.allSettled(
+          authorIds.map(id => userAPI.getUser(id))
+        )
+        
+        const authorMap = {}
+        authorProfiles.forEach((result, index) => {
+          if (result.status === 'fulfilled' && result.value) {
+            const authorId = authorIds[index]
+            authorMap[authorId] = result.value
+          }
+        })
+        
+        // Enrich recipes với author info
+        recipesList = recipesList.map(recipe => {
+          if (recipe.author?.id && authorMap[recipe.author.id]) {
+            const authorProfile = authorMap[recipe.author.id]
+            return {
+              ...recipe,
+              author: {
+                id: recipe.author.id,
+                fullName: authorProfile.fullName || 'Người dùng',
+                avatar: authorProfile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(authorProfile.fullName || 'User')}`,
+                username: authorProfile.username || '',
+                bio: authorProfile.bio || '',
+                recipesCount: authorProfile.recipesCount || 0,
+                followersCount: authorProfile.followersCount || 0,
+              }
+            }
+          }
+          // Fallback nếu không fetch được
+          return {
+            ...recipe,
+            author: {
+              id: recipe.author?.id || '',
+              fullName: 'Người dùng',
+              avatar: 'https://ui-avatars.com/api/?name=User',
+              username: '',
+              bio: '',
+              recipesCount: 0,
+              followersCount: 0,
+            }
+          }
+        })
+      }
+      
       setAllRecipes(recipesList) // Lưu tất cả recipes
       
       // Categories trả về { data: [...] } từ category service

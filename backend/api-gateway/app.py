@@ -5,12 +5,21 @@ import logging
 from functools import wraps
 from flask_cors import CORS
 import os
+from flask_caching import Cache # Đã import
+from config import config       # Đã import
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# [NEW] 1. Load cấu hình từ config.py (để lấy CACHE_TYPE, CACHE_TIMEOUT...)
+# Mặc định dùng 'development' hoặc 'default'
+app.config.from_object(config.get('development')) 
+
+# [NEW] 2. Khởi tạo Cache
+cache = Cache(app)
 
 # CORS configuration - Allow all origins, methods, and headers for development
 CORS(app, 
@@ -37,20 +46,14 @@ SERVICES = {
     "tag-service": "http://localhost:8084",
     "health-service": "http://localhost:8091",
     "ai-service": "http://localhost:8092",
-    # Comment / rating / favorite / follow service
-    # Internal routes in this service start with /api/*
-    # so we point base URL to /api and strip /api/v1 at the gateway.
     "comment-service": "http://localhost:8085/api",
 }
 
 # Public endpoints (no authentication required)
-# - /auth/*: authentication & token issuance
-# - /media/download/*: cho phép browser tải ảnh/file công khai (avatar, image) không cần gửi Authorization header
 PUBLIC_ENDPOINTS = [
     r"/auth/.*",
     r"/media/download/.*"
 ]
-
 
 def is_public_endpoint(path):
     """Check if the endpoint is public"""
@@ -58,7 +61,6 @@ def is_public_endpoint(path):
         if re.match(API_PREFIX + pattern, path):
             return True
     return False
-
 
 def create_api_response(code=0, message="Success!", data=None):
     """Create standardized API response"""
@@ -70,16 +72,20 @@ def create_api_response(code=0, message="Success!", data=None):
         response["data"] = data
     return response
 
-
 def unauthenticated_response():
     """Return unauthenticated response"""
     response = create_api_response(code=1401, message="Unauthenticated")
     return jsonify(response), 401
 
-
+# [NEW] 3. CACHE TOKEN - Giảm tải Authentication Service
+# timeout=60: Chỉ kiểm tra lại token sau mỗi 60 giây (Thay vì mỗi request)
+@cache.memoize(timeout=60)
 def introspect_token(token):
-    """Call identity service to validate token"""
+    """Call identity service to validate token (CACHED)"""
     try:
+        # Log để debug xem khi nào gọi thật, khi nào dùng cache
+        # logger.info("⚡ Cache Miss: Introspecting token remotely...")
+        
         url = f"{SERVICES['authentication-service']}/auth/introspect"
         payload = {"accessToken": token}
         headers = {"Content-Type": "application/json"}
@@ -94,12 +100,11 @@ def introspect_token(token):
         logger.error(f"Error introspecting token: {str(e)}")
         return False
 
-
 def authentication_filter(f):
     """Authentication decorator for routes"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        logger.info("Enter authentication filter....")
+        # logger.info("Enter authentication filter....")
         
         # Check if endpoint is public
         if is_public_endpoint(request.path):
@@ -113,7 +118,7 @@ def authentication_filter(f):
         # Extract token
         token = auth_header.replace("Bearer ", "")
         
-        # Validate token
+        # Validate token (Hàm này đã được Cache ở trên)
         if introspect_token(token):
             return f(*args, **kwargs)
         else:
@@ -121,12 +126,10 @@ def authentication_filter(f):
     
     return decorated_function
 
-
 def proxy_request(service_url, path, strip_prefix_count=2):
     """Proxy request to target service"""
     # Strip prefix from path
     path_parts = path.split('/')
-    # Remove empty strings and first 'strip_prefix_count' parts
     filtered_parts = [p for p in path_parts if p]
     if len(filtered_parts) >= strip_prefix_count:
         target_path = '/' + '/'.join(filtered_parts[strip_prefix_count:])
@@ -140,11 +143,9 @@ def proxy_request(service_url, path, strip_prefix_count=2):
     if request.query_string:
         target_url += f"?{request.query_string.decode('utf-8')}"
     
-    # Prepare headers (exclude host header)
     headers = {key: value for key, value in request.headers if key.lower() != 'host'}
     
     try:
-        # Forward request to target service
         if request.method == 'GET':
             response = requests.get(target_url, headers=headers, timeout=30)
         elif request.method == 'POST':
@@ -152,20 +153,12 @@ def proxy_request(service_url, path, strip_prefix_count=2):
         elif request.method == 'PUT':
             response = requests.put(target_url, headers=headers, data=request.get_data(), timeout=30)
         elif request.method == 'DELETE':
-            # DELETE cũng có thể mang body (vd: truyền userId),
-            # nên phải forward cả data giống POST/PUT/PATCH
-            response = requests.delete(
-                target_url,
-                headers=headers,
-                data=request.get_data(),
-                timeout=30
-            )
+            response = requests.delete(target_url, headers=headers, data=request.get_data(), timeout=30)
         elif request.method == 'PATCH':
             response = requests.patch(target_url, headers=headers, data=request.get_data(), timeout=30)
         else:
             return jsonify(create_api_response(code=405, message="Method not allowed")), 405
         
-        # Return response
         return Response(
             response.content,
             status=response.status_code,
@@ -180,11 +173,10 @@ def proxy_request(service_url, path, strip_prefix_count=2):
 @app.route(f'{API_PREFIX}/auth/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 @authentication_filter
 def authentication_service(subpath):
-    """Route requests to authentication service"""
     return proxy_request(SERVICES['authentication-service'], request.path, strip_prefix_count=2)
 
 
-# Comment / rating / favorite / follow routes (Comment Service)
+# Comment / rating / favorite routes
 @app.route(f'{API_PREFIX}/recipes/<recipe_id>/comments', methods=['GET', 'POST'])
 @app.route(f'{API_PREFIX}/comments/<comment_id>', methods=['PUT', 'DELETE'])
 @app.route(f'{API_PREFIX}/comments/<comment_id>/like', methods=['POST', 'DELETE'])
@@ -197,53 +189,54 @@ def authentication_service(subpath):
 @app.route(f'{API_PREFIX}/users/<user_id>/follow', methods=['POST', 'DELETE'])
 @authentication_filter
 def comment_service_handler(recipe_id=None, comment_id=None, user_id=None):
-    """Route comment/rating/favorite/follow-related requests to comment service"""
     return proxy_request(SERVICES['comment-service'], request.path, strip_prefix_count=2)
 
-# User service routes (other user-related APIs)
+# User service routes
 @app.route(f'{API_PREFIX}/users/<userId>/recipes', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 @authentication_filter
 def user_recipes_service(userId):
-    """Route /users/{userId}/recipes to recipe service"""
     return proxy_request(SERVICES['recipe-service'], request.path, strip_prefix_count=2)
 
 @app.route(f'{API_PREFIX}/users/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 @authentication_filter
 def user_service(subpath):
-    """Route other /users/* requests to user service"""
     return proxy_request(SERVICES['user-service'], request.path, strip_prefix_count=2)
-
 
 # Media service routes
 @app.route(f'{API_PREFIX}/media/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 @authentication_filter
 def media_service(subpath):
-    """Route requests to media service"""
     return proxy_request(SERVICES['media-service'], request.path, strip_prefix_count=2)
 
 
-# Recipe service routes
+# [NEW] 4. CACHE RECIPE SERVICE
+# Cache 5 phút (300s). Query String=True để phân biệt các page khác nhau.
 @app.route(f'{API_PREFIX}/recipes', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], strict_slashes=False)
 @app.route(f'{API_PREFIX}/recipes/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 @authentication_filter
+@cache.cached(timeout=300, query_string=True, unless=lambda: request.method != 'GET')
 def recipe_service_handler(subpath=''):
     """Route requests to recipe service"""
     return proxy_request(SERVICES['recipe-service'], request.path, strip_prefix_count=2)
 
 
-# Category service routes
+# [NEW] 5. CACHE CATEGORY SERVICE
+# Danh mục ít đổi, cache 1 tiếng (3600s)
 @app.route(f'{API_PREFIX}/categories', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], strict_slashes=False)
 @app.route(f'{API_PREFIX}/categories/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 @authentication_filter
+@cache.cached(timeout=3600, query_string=True, unless=lambda: request.method != 'GET')
 def category_service_handler(subpath=''):
     """Route requests to category service"""
     return proxy_request(SERVICES['category-service'], request.path, strip_prefix_count=2)
 
 
-# Tag service routes
+# [NEW] 6. CACHE TAG SERVICE
+# Tag ít đổi, cache 1 tiếng (3600s)
 @app.route(f'{API_PREFIX}/tags', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], strict_slashes=False)
 @app.route(f'{API_PREFIX}/tags/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 @authentication_filter
+@cache.cached(timeout=3600, query_string=True, unless=lambda: request.method != 'GET')
 def tag_service_handler(subpath=''):
     """Route requests to tag service"""
     return proxy_request(SERVICES['tag-service'], request.path, strip_prefix_count=2)
@@ -254,7 +247,6 @@ def tag_service_handler(subpath=''):
 @app.route(f'{API_PREFIX}/health/<path:subpath>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 @authentication_filter
 def health_service_handler(subpath=''):
-    """Route requests to health service"""
     return proxy_request(SERVICES['health-service'], request.path, strip_prefix_count=2)
 
 
@@ -264,34 +256,24 @@ def health_service_handler(subpath=''):
 @authentication_filter
 def ai_service_handler(subpath=''):
     """Route requests to AI service"""
-    # Log để debug
-    logger.info(f"AI Service Handler - Original path: {request.path}, Subpath: {subpath}")
-    # Strip /api/v1, giữ lại /ai/...
-    # Nếu subpath có giá trị, dùng nó; nếu không, strip từ path
+    # ... (Giữ nguyên logic xử lý path phức tạp của AI Service) ...
     if subpath:
         target_path = f'/ai/{subpath}'
     else:
-        # Strip /api/v1 từ path
         path_parts = request.path.split('/')
         filtered_parts = [p for p in path_parts if p]
         if len(filtered_parts) >= 2:
-            # Bỏ 'api' và 'v1', giữ lại phần còn lại
             target_path = '/' + '/'.join(filtered_parts[2:])
         else:
             target_path = '/ai'
     
-    logger.info(f"AI Service Handler - Target path: {target_path}")
     target_url = f"{SERVICES['ai-service']}{target_path}"
-    
-    # Add query parameters if present
     if request.query_string:
         target_url += f"?{request.query_string.decode('utf-8')}"
     
-    # Prepare headers (exclude host header)
     headers = {key: value for key, value in request.headers if key.lower() != 'host'}
     
     try:
-        # Forward request to target service
         if request.method == 'GET':
             response = requests.get(target_url, headers=headers, timeout=30)
         elif request.method == 'POST':
@@ -305,7 +287,6 @@ def ai_service_handler(subpath=''):
         else:
             return jsonify(create_api_response(code=405, message="Method not allowed")), 405
         
-        # Return response
         return Response(
             response.content,
             status=response.status_code,
@@ -319,7 +300,6 @@ def ai_service_handler(subpath=''):
 # Health check endpoint
 @app.route('/health', methods=['GET'])
 def health_check():
-    """Health check endpoint"""
     return jsonify(create_api_response(message="API Gateway is running")), 200
 
 

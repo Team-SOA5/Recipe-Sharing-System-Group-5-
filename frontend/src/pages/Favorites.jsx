@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { favoriteAPI, recipeAPI } from '../services/api'
+import { favoriteAPI, recipeAPI, userAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import RecipeCard from '../components/RecipeCard'
 import toast from 'react-hot-toast'
@@ -38,13 +38,61 @@ export default function Favorites() {
       const ids = favorites.map((f) => f.id)
       const results = await Promise.allSettled(ids.map((id) => recipeAPI.getRecipe(id)))
 
-      const detailedRecipes = results
+      let detailedRecipes = results
         .filter((r) => r.status === 'fulfilled' && r.value)
         .map((r) => ({
           // r.value đã là response.data do interceptor, là object recipe đầy đủ
           ...r.value,
           isFavorited: true,
         }))
+
+      // Fetch author info cho tất cả recipes
+      const authorIds = Array.from(new Set(detailedRecipes.map(r => r.author?.id).filter(Boolean)))
+      if (authorIds.length > 0) {
+        const authorProfiles = await Promise.allSettled(
+          authorIds.map(id => userAPI.getUser(id))
+        )
+        
+        const authorMap = {}
+        authorProfiles.forEach((result, index) => {
+          if (result.status === 'fulfilled' && result.value) {
+            const authorId = authorIds[index]
+            authorMap[authorId] = result.value
+          }
+        })
+        
+        // Enrich recipes với author info
+        detailedRecipes = detailedRecipes.map(recipe => {
+          if (recipe.author?.id && authorMap[recipe.author.id]) {
+            const authorProfile = authorMap[recipe.author.id]
+            return {
+              ...recipe,
+              author: {
+                id: recipe.author.id,
+                fullName: authorProfile.fullName || 'Người dùng',
+                avatar: authorProfile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(authorProfile.fullName || 'User')}`,
+                username: authorProfile.username || '',
+                bio: authorProfile.bio || '',
+                recipesCount: authorProfile.recipesCount || 0,
+                followersCount: authorProfile.followersCount || 0,
+              }
+            }
+          }
+          // Fallback nếu không fetch được
+          return {
+            ...recipe,
+            author: {
+              id: recipe.author?.id || '',
+              fullName: 'Người dùng',
+              avatar: 'https://ui-avatars.com/api/?name=User',
+              username: '',
+              bio: '',
+              recipesCount: 0,
+              followersCount: 0,
+            }
+          }
+        })
+      }
 
       setRecipes(detailedRecipes)
     } catch (error) {

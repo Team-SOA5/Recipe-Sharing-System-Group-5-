@@ -5,6 +5,7 @@ from dto.requests import ProfileCreationRequest, ProfileUpdationRequest
 from dto.responses import UserDetail
 from repositories.repositories import UserProfileRepository
 from clients.media_client import MediaClient
+from clients.recipe_client import RecipeClient
 from exceptions.exceptions import AppException, ErrorCode
 from config import Config
 import logging
@@ -18,6 +19,7 @@ class UserProfileService:
     def __init__(self):
         self.repository = UserProfileRepository()
         self.media_client = MediaClient()
+        self.recipe_client = RecipeClient()
         self.default_avatar = Config.DEFAULT_AVATAR
     
     def create(self, request: ProfileCreationRequest) -> UserDetail:
@@ -107,6 +109,14 @@ class UserProfileService:
         if not user_profile:
             raise AppException(ErrorCode.PROFILE_NOT_EXISTED)
         
+        # Calculate recipesCount dynamically from recipe-service
+        try:
+            recipes_count = self.recipe_client.count_recipes_by_user(user_id)
+            user_profile.recipes_count = recipes_count
+        except Exception as e:
+            logger.warning(f"Failed to fetch recipes count for user {user_id}: {e}")
+            # Keep existing recipes_count if recipe service is unavailable
+        
         return UserDetail.from_user_profile(user_profile)
     
     def find_by_username(self, username: str) -> UserDetail:
@@ -132,5 +142,13 @@ class UserProfileService:
         user_profile = self.repository.find_by_id(user_id)
         if not user_profile:
             raise AppException(ErrorCode.PROFILE_NOT_EXISTED)
+        
+        # Calculate recipesCount dynamically from recipe-service
+        try:
+            recipes_count = self.recipe_client.count_recipes_by_user(user_id)
+            user_profile.recipes_count = recipes_count
+        except Exception as e:
+            logger.warning(f"Failed to fetch recipes count for user {user_id}: {e}")
+            # Keep existing recipes_count if recipe service is unavailable
         
         return UserDetail.from_user_profile(user_profile)

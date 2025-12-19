@@ -17,12 +17,23 @@ export default function RecipeCard({ recipe }) {
 
   return (
     <Link to={`/recipes/${recipe.id}`} className="card hover:shadow-xl transition-shadow">
-      <div className="relative">
-        <img
-          src={recipe.thumbnail}
-          alt={recipe.title}
-          className="w-full h-48 object-cover"
-        />
+      <div className="relative bg-gray-200">
+        {(recipe.thumbnail || (recipe.images && recipe.images.length > 0)) ? (
+          <img
+            src={recipe.thumbnail || recipe.images[0]}
+            alt={recipe.title}
+            className="w-full h-48 object-cover"
+            onError={(e) => {
+              // Nếu ảnh lỗi, ẩn image đi và hiển thị placeholder text
+              e.target.style.display = 'none'
+              const placeholder = e.target.parentElement.querySelector('.img-placeholder')
+              if (placeholder) placeholder.style.display = 'flex'
+            }}
+          />
+        ) : null}
+        <div className="img-placeholder w-full h-48 flex items-center justify-center text-gray-400 text-sm" style={{display: (recipe.thumbnail || (recipe.images && recipe.images.length > 0)) ? 'none' : 'flex'}}>
+          Không có ảnh
+        </div>
         <div className="absolute top-2 right-2">
           <span className={`px-2 py-1 rounded-full text-xs font-medium ${difficultyColors[recipe.difficulty]}`}>
             {difficultyLabels[recipe.difficulty]}

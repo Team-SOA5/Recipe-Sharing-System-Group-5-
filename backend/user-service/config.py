@@ -29,3 +29,7 @@ class Config:
     file_service = app_config.get('app', {}).get('services', {}).get('file', {})
     DEFAULT_AVATAR = os.getenv('DEFAULT_AVATAR', file_service.get('default-avatar', 'http://localhost:8888/api/v1/media/download/9963eeb2-e8fd-4aef-9585-3f605adc0e7f.png'))
     MEDIA_SERVICE_URL = os.getenv('MEDIA_SERVICE_URL', file_service.get('url', 'http://localhost:8090/media'))
+    
+    # Recipe service configuration
+    recipe_service = app_config.get('app', {}).get('services', {}).get('recipe', {})
+    RECIPE_SERVICE_URL = os.getenv('RECIPE_SERVICE_URL', recipe_service.get('url', 'http://localhost:8082'))

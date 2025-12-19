@@ -34,6 +34,35 @@ export default function RecipeDetail() {
       // Load recipe trước (từ recipe-service)
       const recipeData = await recipeAPI.getRecipe(id)
       console.log('Recipe data:', recipeData)
+      
+      // Fetch author info nếu chỉ có author.id
+      if (recipeData?.author?.id && !recipeData.author.fullName) {
+        try {
+          const authorProfile = await userAPI.getUser(recipeData.author.id)
+          recipeData.author = {
+            id: recipeData.author.id,
+            fullName: authorProfile?.fullName || 'Người dùng',
+            avatar: authorProfile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(authorProfile?.fullName || 'User')}`,
+            username: authorProfile?.username || '',
+            bio: authorProfile?.bio || '',
+            recipesCount: authorProfile?.recipesCount || 0,
+            followersCount: authorProfile?.followersCount || 0,
+          }
+        } catch (error) {
+          console.warn('Failed to load author profile:', error)
+          // Fallback với default values
+          recipeData.author = {
+            id: recipeData.author.id,
+            fullName: 'Người dùng',
+            avatar: 'https://ui-avatars.com/api/?name=User',
+            username: '',
+            bio: '',
+            recipesCount: 0,
+            followersCount: 0,
+          }
+        }
+      }
+      
       setRecipe(recipeData)
 
       // Giá trị mặc định từ recipe-service
@@ -596,16 +625,25 @@ export default function RecipeDetail() {
             </div>
           </div>
 
-          {/* Images */}
-          {recipe.images && recipe.images.length > 0 && (
-            <div className="mb-8">
+          {/* Images - ưu tiên thumbnail, nếu không có thì dùng images[0] */}
+          <div className="mb-8 bg-gray-200 rounded-lg">
+            {(recipe.thumbnail || (recipe.images && recipe.images.length > 0)) ? (
               <img
-                src={recipe.images[0]}
+                src={recipe.thumbnail || recipe.images[0]}
                 alt={recipe.title}
                 className="w-full h-96 object-cover rounded-lg"
+                onError={(e) => {
+                  // Nếu ảnh lỗi, ẩn image đi và hiển thị placeholder
+                  e.target.style.display = 'none'
+                  const placeholder = e.target.parentElement.querySelector('.img-placeholder')
+                  if (placeholder) placeholder.style.display = 'flex'
+                }}
               />
+            ) : null}
+            <div className="img-placeholder w-full h-96 flex items-center justify-center text-gray-400 text-lg rounded-lg" style={{display: (recipe.thumbnail || (recipe.images && recipe.images.length > 0)) ? 'none' : 'flex'}}>
+              Không có ảnh minh họa
             </div>
-          )}
+          </div>
 
           {/* Ingredients */}
           <div className="card p-6 mb-6">

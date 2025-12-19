@@ -9,7 +9,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 def _handle_error(e, code=500):
-    logger.error(f"Error: {str(e)}") # Log lỗi ra để dễ debug
+    import traceback
+    logger.error(f"Error: {str(e)}")
+    logger.error(f"Traceback: {traceback.format_exc()}") # Log full traceback để debug
     return jsonify({"code": code, "message": str(e)}), code
 
 # ... (giữ nguyên get_recipes) ...
@@ -65,6 +67,17 @@ def get_recipes():
     except Exception as e:
         return _handle_error(e)
 
+# --- 2a. Tạo công thức (Internal - No auth, dùng cho seed data) ---
+def create_recipe_internal():
+    """
+    Internal endpoint để tạo recipe không cần authentication
+    Dùng cho seed data và testing
+    """
+    # Set g.user_id = None để code bên dưới sẽ dùng authorId từ request body
+    from flask import g
+    g.user_id = None
+    return create_recipe()
+
 # --- 2. Tạo công thức (POST /recipes) ---
 def create_recipe():
     try:
@@ -106,11 +119,34 @@ def create_recipe():
         instructions_objs = []
         for idx, s in enumerate(data.get('instructions', [])):
             if isinstance(s, dict) and 'description' in s:
+                # Convert step to int
+                step_value = s.get('step', idx + 1)
+                if not isinstance(step_value, int):
+                    try:
+                        step_value = int(step_value)
+                    except (ValueError, TypeError):
+                        step_value = idx + 1
+                
+                # Convert duration to int, default to 0 if invalid
+                duration_value = s.get('duration', 0)
+                if isinstance(duration_value, str):
+                    try:
+                        duration_value = int(duration_value)
+                    except (ValueError, TypeError):
+                        duration_value = 0
+                elif duration_value is None:
+                    duration_value = 0
+                elif not isinstance(duration_value, int):
+                    try:
+                        duration_value = int(duration_value)
+                    except (ValueError, TypeError):
+                        duration_value = 0
+                
                 instructions_objs.append(Instruction(
-                    step=s.get('step', idx + 1), 
+                    step=step_value, 
                     description=s['description'], 
                     image=s.get('image', ''),
-                    duration=s.get('duration', 0)
+                    duration=duration_value
                 ))
 
         # Parse Nutrition (Xử lý an toàn)
@@ -148,6 +184,9 @@ def create_recipe():
             except:
                 servings_count = 1
 
+        logger.info(f"Creating recipe with author_id: {author_id}")
+        logger.info(f"Recipe data: title={data.get('title')}, ingredients_count={len(ingredients_objs)}, instructions_count={len(instructions_objs)}")
+        
         new_recipe = Recipe(
             title=data['title'],
             description=data.get('description', ''),
@@ -165,10 +204,20 @@ def create_recipe():
             nutritionInfo=nutrition_obj
         )
         
+        logger.info("Saving recipe to database...")
         new_recipe.save()
-        return jsonify(new_recipe.to_json_detail()), 200
+        logger.info(f"Recipe saved successfully with ID: {new_recipe.id}")
+        
+        logger.info("Converting to JSON detail...")
+        recipe_json = new_recipe.to_json_detail()
+        logger.info("Recipe JSON created successfully")
+        
+        return jsonify(recipe_json), 200
 
     except Exception as e:
+        logger.error(f"Exception in create_recipe: {type(e).__name__}: {str(e)}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         return _handle_error(e)
 
 # --- 3. Xem chi tiết (GET /recipes/{id}) ---

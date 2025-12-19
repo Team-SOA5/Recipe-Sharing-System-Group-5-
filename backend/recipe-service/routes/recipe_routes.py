@@ -9,8 +9,10 @@ recipe_bp.route('', methods=['GET'])(recipe_controller.get_recipes) # /recipes
 recipe_bp.route('/<recipeId>', methods=['GET'])(recipe_controller.get_recipe_detail)
 recipe_bp.route('/<recipeId>/view', methods=['POST'])(recipe_controller.increment_view)
 recipe_bp.route('/<recipeId>/favorite-count', methods=['POST'])(recipe_controller.update_favorite_count)
-recipe_bp.route('/<recipeId>/rating-stats', methods=['POST'])(recipe_controller.update_rating_stats)
 recipe_bp.route('/trending/recipes', methods=['GET'])(recipe_controller.get_trending)
+
+# --- Internal Routes (No auth required, for seed data) ---
+recipe_bp.route('/internal', methods=['POST'])(recipe_controller.create_recipe_internal)
 
 # --- Protected Routes ---
 recipe_bp.route('', methods=['POST'])(jwt_required(recipe_controller.create_recipe))
